@@ -1,0 +1,95 @@
+# Ledger — self-hosted
+
+This is the Docker edition of Ledger. It uses **Next.js / React**, a separate **NestJS / TypeScript API**, **PostgreSQL 18**, **Better Auth**, and **Caddy**. It has no Supabase, Cloudflare D1/R2, or Sites runtime dependency. The earlier Sites project remains separately in `../ledger`; this edition is in `ledger-selfhost`.
+
+## Current deployment
+
+- Live app: https://ledger.chirayupatel.dev
+- Login: `chirayu@ledger.chirayupatel.dev`
+- Generated password: `.secrets/owner-login.json` (mode 0600, excluded from Git and Docker builds).
+- After signing in, use **Your account & data → Change password**. Changing a password revokes other sessions.
+- Google login, public signup, and email recovery are disabled. `MAIL_DELIVERY_ENABLED=false` prevents outbound mail and disables email-dependent authentication endpoints. The account was explicitly provisioned and verified by the operator; verification requirements remain in place for other accounts.
+
+The existing host Cloudflare Tunnel routes this hostname to `http://127.0.0.1:5800`. Public traffic uses Cloudflare-managed HTTPS and an encrypted tunnel; the final HTTP hop stays on the same host. HTTP redirects to HTTPS and HSTS is enabled. The database/API/web ports remain private. The `drop` and `files` tunnel routes are preserved.
+
+Use `sudo docker compose up -d --build` for updates on this host. **Do not use `deploy/compose.production.yaml` here**: that optional configuration is for direct Internet hosting without the tunnel. The tunnel route lives in `/etc/cloudflared/config.yml` with a pre-change backup at `/etc/cloudflared/config.before-ledger.yml`. Caddy trusts the current Docker gateway `172.18.0.1` for the Cloudflare client-IP header; update that explicit address if the Docker subnet changes. Do not expose the loopback origin port directly to the Internet.
+
+To enable email later, configure a real SMTP sender, set `MAIL_DELIVERY_ENABLED=true`, and recreate the API container. Verify delivery before inviting signups. Google remains optional and disabled without its credentials. The local Mailpit container is stopped.
+
+## Local development on a separate checkout
+
+
+
+```sh
+node deploy/setup.mjs
+sudo docker compose --profile local up -d --build
+```
+
+- App: http://localhost:5800
+- Local verification/reset email inbox: http://localhost:5801
+- Create your account in the app, open its verification email in the local inbox, then sign in.
+- Google sign-in stays disabled until your Google client ID and secret are configured.
+
+Both ports bind to loopback. PostgreSQL, the API, and the Next.js server have no published host ports. The `.env` file has unique generated secrets and mode 0600. Setup never overwrites an existing file. Docker restarts the services after reboot; PostgreSQL data survives application rebuilds in `ledger_postgres-data`. Do not run `docker compose down -v` unless you intend to erase data.
+
+## Application
+
+Indian CSV and text-table PDF imports, preview and column mapping, exact paise amounts, categorization rules, review flags, income/expense summaries, transfers/refunds, duplicate detection, original statement downloads, activity history, and JSON/CSV export are retained. PDF parsing happens in the browser; confirmed data and originals persist in PostgreSQL, not browser storage.
+
+Email/password signup requires email verification. Better Auth manages password hashing, database sessions, reset tokens, Google OAuth, origin protection, and database-backed authentication throttling. Password resets revoke sessions. API operations derive the owner from the verified session and scope every financial query by that owner. User-supplied ownership and gateway identity headers are ignored. Automatic linking of Google and password accounts by email is disabled.
+
+Ledger writes lock the user's database row and check the revision in one transaction. Upload quotas are checked under the same lock. Originals currently use PostgreSQL `bytea`, which keeps file deletion and ledger changes atomic and puts all records in one consistent database backup. This is deliberately simple for a single-server deployment; large installations should introduce private object storage through a storage service with a durable deletion queue. Limits: 20 MB/file, 1 GiB and 2,000 files/account, 25,000 transactions, 500 rules.
+
+The UI preserves the existing browser-based finance renderer inside React. New pages can use React directly; replacing that renderer is a separate UI refactor. Nest controllers, authentication, storage, and validation are separate modules. The database uses versioned application migrations and the pinned authentication library's schema migration API.
+
+## Google and public hosting
+
+1. Choose a domain pointing to this server. Set `APP_ORIGIN=https://your-domain` and `SITE_ADDRESS=your-domain` in `.env`.
+2. Configure a real SMTP sender: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `MAIL_FROM`. Verify your sender domain and test delivery. Mailpit is a local test inbox, not an Internet mail service. With email enabled, public startup rejects absent SMTP credentials. Public startup always rejects plain HTTP origins.
+3. Create a Google OAuth web client with redirect URI `https://your-domain/api/auth/callback/google`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. For local testing, use `http://localhost:5800/api/auth/callback/google` in a development OAuth client. Keep credentials out of version control.
+4. Start with `sudo docker compose -f compose.yaml -f deploy/compose.production.yaml up -d --build`. This publishes ports 80/443 and Caddy provisions TLS. Stop local Mailpit when no longer needed: `sudo docker compose --profile local stop mailpit`.
+5. Verify real email signup/recovery, Google login with two accounts, per-user isolation, and HTTPS cookies before inviting users.
+
+The existing `chatgpt.site` URL cannot host these Docker containers. Use this machine's localhost URL now and your own domain for public hosting.
+
+## Operations and backups
+
+```sh
+sudo docker compose ps
+sudo docker compose logs --tail=100 api
+node deploy/backup.mjs
+node deploy/restore-check.mjs backups/ledger-TIMESTAMP.dump
+```
+
+Backups contain account information, original bank statements, and pending email links. Store encrypted copies off this host, restrict access, schedule backups, and test restoration. The backup command creates a private PostgreSQL custom-format dump under `backups/`. Restore into a **new empty database first** using `pg_restore --exit-on-error --no-owner`; compare ledger revisions, row counts, and original bytes before considering a production restore. Never restore over a live database casually. Preserve `.env` secrets securely alongside your recovery plan; rotating `AUTH_SECRET` can invalidate sessions and encrypted provider credentials.
+
+The mail outbox retries failed SMTP deliveries up to eight times with exponential delay. Watch `mail_outbox` for exhausted attempts. `/api/health` checks database connectivity; configure external uptime monitoring and disk/backup/SMTP alerts for public operation. Caddy access logging is intentionally off so verification URLs are not recorded. Server errors log codes, not financial request bodies or credentials.
+
+## Validation
+
+```sh
+npm ci
+npm test
+npm run build
+npm run test:integration
+```
+
+Integration tests require the local Docker stack and Mailpit, create unique test accounts, and exercise real PostgreSQL and SMTP, including verification, recovery, sessions, two-account file/data isolation, conflicting writes, CSRF, and deletion. They do not send real Internet email or test Google consent. Run browser checks with `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/browser.mjs` (Playwright and its Chromium installation are supplied separately). The restore-check command uses a fresh temporary database and deletes only that verification database when done.
+
+## Production limits
+
+A running local stack is not a public production launch. The live domain and HTTPS are configured. Optional Google credentials, email delivery, monitoring, offsite backup schedules, retention policy, and representative load tests remain operator setup. Snapshot writes are bounded but should be benchmarked before large-scale use. There is no universal scanned-PDF OCR, professional tax preparation, or CPA-level judgment. Accounts and data from the old Sites deployment are not automatically migrated; export a ledger backup and originals from that account, restore to your verified new account, and attach originals again.
+
+## Bank accounts
+
+Use **Accounts** in the sidebar to add or edit bank/institution, account nickname, type, and optional last four digits. Accounts use stable IDs, so renaming updates their statements and transactions without breaking duplicate detection. Full account numbers are not collected. INR is currently the only supported currency.
+
+Imports select an existing active account or let you create one first. **Statements → Change account** moves an import and all its transactions while retaining the original file. Review overlapping imports after a move. Archive accounts to hide them from new import choices while retaining history; reactivate them to import again. Only empty accounts can be deleted.
+
+The bank-account filter applies to transactions, summaries, reports, and the statement library. Account cards show all imported credits, debits, and net movement, including transfers; these are not bank balances. JSON backups include account metadata and IDs. Older backups and existing ledgers are upgraded automatically by migration 2; old open browser tabs must reload before saving. A pre-migration database backup is retained locally.
+
+Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bank-accounts-browser.mjs` to verify the live workflow using temporary test accounts that are removed afterward. This test does not use or change the owner's financial records.
+
+## Repository
+
+The source is initialized as a local Git repository, with CI configured to check types, parser/account validation, and production builds. GitHub creation/push requires an authenticated GitHub connection. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.

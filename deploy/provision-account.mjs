@@ -1,0 +1,14 @@
+import {randomBytes} from 'node:crypto';
+import {mkdirSync,writeFileSync,existsSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const email=process.argv[2],name=process.argv[3]||'Ledger owner';
+if(!email)throw Error('Usage: node deploy/provision-account.mjs EMAIL NAME');
+const root=fileURLToPath(new URL('../',import.meta.url)),directory=new URL('../.secrets/',import.meta.url),file=new URL('../.secrets/owner-login.json',import.meta.url);
+mkdirSync(directory,{recursive:true,mode:0o700});if(existsSync(file))throw Error('A credential file already exists; refusing to overwrite it.');
+const password=randomBytes(24).toString('base64url');
+writeFileSync(file,JSON.stringify({url:'https://ledger.chirayupatel.dev/login',email,password},null,2)+'\n',{flag:'wx',mode:0o600});
+const child=spawn('sudo',['-n','docker','compose','exec','-T','api','node','apps/api/dist/apps/api/src/create-account.js'],{cwd:root,stdio:['pipe','inherit','inherit']});
+child.stdin.end(JSON.stringify({email,name,password}));
+await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Account creation failed; private credential file retained for diagnosis.')));});
+console.log('Login credentials are in .secrets/owner-login.json (owner-readable only).');

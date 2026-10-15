@@ -1,0 +1,19 @@
+{
+  "name": "ledger-selfhost",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm run build -w apps/api && node --test tests/*.test.mjs",
+    "test:integration": "node tests/integration.mjs",
+    "check": "tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

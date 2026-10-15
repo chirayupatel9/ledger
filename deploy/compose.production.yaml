@@ -1,0 +1,4 @@
+# Use only after setting APP_ORIGIN=https://your-domain and SITE_ADDRESS=your-domain.
+services:
+  proxy:
+    ports: !override ['80:80', '443:443', '443:443/udp']

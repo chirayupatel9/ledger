@@ -1,0 +1,29 @@
+'use client';
+import {useState,type FormEvent} from 'react';
+type Mode='login'|'signup'|'forgot'|'reset'|'change';
+export default function AuthForm({mode,configured,google,signup,recovery,linkError}:{mode:Mode;configured:boolean;google:boolean;signup:boolean;recovery:boolean;linkError?:boolean}){
+ const [busy,setBusy]=useState(false),[error,setError]=useState(linkError?'This link has expired or is invalid. Request a new link.':''),[message,setMessage]=useState('');
+ async function request(action:string,body:Record<string,string>={}){
+  const paths:Record<string,string>={login:'sign-in/email',signup:'sign-up/email',forgot:'request-password-reset',reset:'reset-password',google:'sign-in/social',change:'change-password'};
+  const payload=action==='change'?{currentPassword:body.currentPassword,newPassword:body.password,revokeOtherSessions:true}:action==='forgot'?{email:body.email,redirectTo:window.location.origin+'/reset-password'}:action==='reset'?{newPassword:body.password,token:new URLSearchParams(window.location.search).get('token')}:action==='google'?{provider:'google',callbackURL:'/',errorCallbackURL:'/login?error=link'}:{...body,callbackURL:'/login'};
+  const res=await fetch('/api/auth/'+paths[action],{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json() as {message?:string;url?:string;code?:string};
+  if(!res.ok)throw Error(data.message||'Something went wrong. Please retry.');
+  if(action==='signup')return {message:'Check your inbox to verify your email before signing in.'};
+  if(action==='forgot')return {message:'If an account exists for that address, a reset link is on its way.'};
+  return data;
+ }
+ async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setError('');const f=new FormData(event.currentTarget),body=Object.fromEntries(f) as Record<string,string>;if((mode==='signup'||mode==='reset'||mode==='change')&&body.password!==body.confirm){setError('The passwords do not match.');return}delete body.confirm;setBusy(true);try{const data=await request(mode,body);if(mode==='login'||mode==='reset'||mode==='change'){window.location.assign(mode==='reset'?'/login':'/');return}setMessage(data.message||'Check your email for the next step.')}catch(e){setError(e instanceof Error?e.message:'Unable to connect. Please retry.')}finally{setBusy(false)}}
+ async function googleLogin(){setBusy(true);setError('');try{const data=await request('google');if(!data.url)throw Error('Could not start Google sign-in.');window.location.assign(data.url)}catch(e){setError(e instanceof Error?e.message:'Google sign-in is unavailable.');setBusy(false)}}
+ return <div>{!configured&&<div className="auth-notice" role="status">This option is currently unavailable. Please sign in with your existing account.</div>}{error&&<div className="auth-error" role="alert">{error}</div>}{message?<div className="auth-success" role="status"><span className="mail-icon">✉</span><h2>Check your inbox</h2><p>{message}</p><a href="/login" className="auth-primary">Back to sign in</a></div>:<><form onSubmit={submit}>
+ {mode==='signup'&&<label>Full name<input name="name" autoComplete="name" maxLength={100} required placeholder="Your name" disabled={!configured||busy}/></label>}
+ {mode!=='reset'&&mode!=='change'&&<label>Email address<input name="email" type="email" autoComplete="email" maxLength={254} required placeholder="you@example.com" disabled={!configured||busy}/></label>}
+ {mode==='change'&&<label>Current password<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} disabled={busy}/></label>}
+ {mode!=='forgot'&&<label>{(mode==='reset'||mode==='change')?'New password':'Password'}<input name="password" type="password" autoComplete={mode==='login'?'current-password':'new-password'} minLength={mode==='login'?1:12} maxLength={128} required placeholder={mode==='login'?'Your password':'At least 12 characters'} disabled={!configured||busy}/></label>}
+ {(mode==='signup'||mode==='reset'||mode==='change')&&<label>Confirm password<input name="confirm" type="password" autoComplete="new-password" minLength={12} maxLength={128} required placeholder="Enter your password again" disabled={!configured||busy}/></label>}
+ {mode==='login'&&recovery&&<div className="forgot-link"><a href="/forgot-password">Forgot password?</a></div>}
+ <button className="auth-primary" disabled={!configured||busy}>{busy?'Please wait…':({login:'Sign in',signup:'Create account',forgot:'Send reset link',reset:'Save new password',change:'Update password'})[mode]}<span aria-hidden="true">→</span></button></form>
+ {google&&(mode==='login'||mode==='signup')&&<><div className="auth-divider"><span>or</span></div><button className="google-button" disabled={!configured||!google||busy} onClick={googleLogin}><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.4-.2-2.1H12v4h5.4a4.7 4.7 0 0 1-2 3v2.6h3.3c1.9-1.8 2.9-4.4 2.9-7.5z"/><path fill="#34A853" d="M12 22c2.7 0 5-1 6.7-2.4L15.4 17c-.9.6-2 1-3.4 1-2.6 0-4.9-1.8-5.7-4.2H2.9v2.7A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.3 13.8a6 6 0 0 1 0-3.6V7.5H2.9a10 10 0 0 0 0 9l3.4-2.7z"/><path fill="#EA4335" d="M12 6c1.5 0 2.8.5 3.8 1.5l2.9-2.8A9.6 9.6 0 0 0 12 2a10 10 0 0 0-9.1 5.5l3.4 2.7A6 6 0 0 1 12 6z"/></svg>Continue with Google</button>{configured&&!google&&<p className="auth-small">Google sign-in is not available yet. You can use email and password.</p>}</>}
+ <p className="auth-switch">{mode==='login'?(signup?<>New to Ledger? <a href="/signup">Create an account</a></>:null):mode==='signup'?<>Already have an account? <a href="/login">Sign in</a></>:<a href="/login">← Back to sign in</a>}</p></>}
+ </div>
+}

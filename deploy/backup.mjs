@@ -1,0 +1,12 @@
+import {mkdirSync,createWriteStream,chmodSync} from 'node:fs';
+import {spawn} from 'node:child_process';
+import {pipeline} from 'node:stream/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root=fileURLToPath(new URL('../',import.meta.url));
+mkdirSync(path.join(root,'backups'),{recursive:true,mode:0o700});
+const target=path.join(root,'backups',`ledger-${new Date().toISOString().replace(/[:.]/g,'-')}.dump`);
+const child=spawn('sudo',['-n','docker','compose','exec','-T','db','pg_dump','-U','ledger','-d','ledger','-Fc'],{cwd:root,stdio:['ignore','pipe','inherit']});
+const exited=new Promise((resolve,reject)=>{child.on('error',reject);child.on('close',code=>code===0?resolve():reject(Error(`pg_dump exited ${code}`)));});
+await Promise.all([pipeline(child.stdout,createWriteStream(target,{flags:'wx',mode:0o600})),exited]);
+chmodSync(target,0o600);console.log(`Backup saved: ${target}`);
