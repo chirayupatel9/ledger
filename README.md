@@ -92,4 +92,4 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bank-ac
 
 ## Repository
 
-The source is initialized as a local Git repository, with CI configured to check types, parser/account validation, and production builds. GitHub creation/push requires an authenticated GitHub connection. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.
+The private repository is [chirayupatel9/ledger](https://github.com/chirayupatel9/ledger). GitHub Actions checks types, parser/account validation, and production builds on pushes to `main` and pull requests. Deployment remains a separate Docker operation on this server. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.
