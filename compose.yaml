@@ -10,6 +10,7 @@ x-api: &api
     DATABASE_URL: postgresql://ledger:${POSTGRES_PASSWORD:?Database password required}@db:5432/ledger
     AUTH_SECRET: ${AUTH_SECRET:?Authentication secret required}
     MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-true}
+    SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
     SMTP_HOST: ${SMTP_HOST:?SMTP host required}
     SMTP_PORT: ${SMTP_PORT:-587}
     SMTP_SECURE: ${SMTP_SECURE:-false}
@@ -109,6 +110,23 @@ services:
     cap_drop: [ALL]
     read_only: true
     tmpfs: [/tmp]
+    restart: unless-stopped
+  monitor:
+    image: ledger-api:local
+    command: [node, /monitor/monitor.mjs]
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN}
+      NTFY_URL: ${NTFY_URL:-}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      MONITOR_INTERVAL_MINUTES: ${MONITOR_INTERVAL_MINUTES:-5}
+    volumes:
+      - ./backups:/backups:ro
+      - ./deploy/monitor.mjs:/monitor/monitor.mjs:ro
+    depends_on:
+      api: {condition: service_healthy}
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
     restart: unless-stopped
   mailpit:
     image: axllent/mailpit:v1.27

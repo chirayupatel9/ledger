@@ -120,6 +120,14 @@ try{
  tx=(await state()).state.transactions;assert.ok(tx.find(t=>t.id===bankLeg.id).transferId===tx.find(t=>t.id===cardLeg.id).transferId);
  await page.locator('#type-filter').selectOption('all');
 
+ // 8c. Recurring payments: three monthly Netflix charges become a series that links to its transactions.
+ data=await state();const octId=data.state.statements.find(st=>st.name==='hdfc-oct.xlsx').id;
+ data.state.transactions.push(...['2026-08-06','2026-09-05','2026-10-06'].map((date,i)=>({id:'netflix-'+i,statementId:octId,accountId:'hdfc',account:'HDFC Savings',date,description:'NETFLIX.COM MUMBAI',amount:-64900,category:'Entertainment',type:'Expense',review:false})));
+ assert.equal((await put(data)).status(),200);await page.goto(base+'/reports');const recurring=page.locator('.recurring-card');await recurring.waitFor();
+ assert.match(await recurring.innerText(),/About ₹649\.00 a month[\s\S]*Netflix[\s\S]*monthly[\s\S]*No statement covers 06 Nov 2026/,'the November statement is deliberately missing in this test');
+ await recurring.locator('[data-recurring="Netflix"]').click();assert.equal(await page.locator('#search').inputValue(),'Netflix');assert.equal(await page.locator('#transaction-results tbody tr').count(),3);
+ await page.goto(base+'/');await page.locator('.security-strip').waitFor();
+
  // 8. Paging: a large ledger renders 200 rows at a time.
  const other=await browser.newContext();assert.equal((await other.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[1].email,password:users[1].password}})).status(),200);
  data=await state(other);data.state={schemaVersion:2,initialized:true,accounts:[{id:'a',name:'Bulk',bank:'',type:'Savings',last4:'',currency:'INR',archived:false}],statements:[{id:'s',accountId:'a',account:'Bulk',name:'bulk.csv',count:450,created:'2026-10-16T00:00:00Z'}],rules:[],transactions:Array.from({length:450},(_,i)=>({id:'t'+i,statementId:'s',accountId:'a',account:'Bulk',date:'2026-09-'+String(1+i%28).padStart(2,'0'),description:'UPI/DR/'+(100000+i)+'/SHOP',amount:-(100+i),category:'Shopping',type:'Expense',review:true}))};
@@ -140,7 +148,8 @@ try{
  let code=totp(secret);if(code===enableCode){await sleep(30000-Date.now()%30000+500);code=totp(secret);}
  await login.getByLabel('Authentication code').fill(code);await login.getByRole('button',{name:'Verify and sign in'}).click();await login.waitForURL(u=>new URL(u).pathname==='/reports');
  assert.equal((await fresh.request.get(base+'/api/ledger')).status(),200);await fresh.close();
+ await page.goto(base+'/');await page.locator('.metrics').waitFor();assert.equal(await page.locator('.security-strip').count(),0,'reminder disappears once two-step verification is on');
 
  assert.deepEqual(problems,[]);
- console.log('PASS: transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}

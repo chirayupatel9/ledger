@@ -41,12 +41,12 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 
 | Gap | Why it matters | Status |
 | --- | --- | --- |
-| Backups are manual and kept only on the same host | One disk failure loses every statement. | Done: daily verified `scheduled-*.dump` backups (14 kept), copied and verified hourly to the external USB drive at `/mnt/backup/ledger` (60 kept), health-checked. A copy away from this building **needs decision**. |
+| Backups are manual and kept only on the same host | One disk failure loses every statement. | Done: daily verified `scheduled-*.dump` backups (14 kept), copied and verified hourly to the external USB drive at `/mnt/backup/ledger` (60 kept), health-checked. Drive copies are encrypted (AES-256). A copy away from this building was skipped for now. |
 | No two-step verification | Bank statements behind a single password on the public Internet. | Done (TOTP + backup codes, opt-in at `/security`) |
 | Content-Security-Policy has no `script-src`/`connect-src` | An injected script could exfiltrate financial data to another origin. | Done |
 | Test logins left in production DB (`*@example.test`) | Verified accounts nobody owns. | Done (3 accounts removed after a verified backup) |
-| Password reset needs email | Owner can only be reset by the operator. | Needs decision (SMTP provider) — deferred by owner |
-| No uptime/disk/backup alerting | Failures go unnoticed. | Needs decision (alerting service) |
+| Password reset needs email | Owner can only be reset by the operator. | Gmail SMTP chosen; waiting for an app password and a login address that receives mail. Signup stays closed when email is on. |
+| No uptime/disk/backup alerting | Failures go unnoticed. | Done (ntfy push alerts for site, backups, drive copy, disk space; host power loss still needs an outside check) |
 | Ledger stored as one JSON document per user | Every edit rewrites the whole ledger; fine for one user, not for many large ledgers. | Later (normalise into tables before public signup) |
 | Account deletion, privacy notice, consent (DPDP Act 2023) | Required before accepting other users. | Needs decision (public launch) |
 | Old ChatGPT Sites deployment still published | Duplicate, unmaintained copy of the app. | Needs decision (take down) |
@@ -59,9 +59,8 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 
 ## Decisions still needed from the owner
 
-1. **Offsite backups**: choose a destination away from this building (e.g. Backblaze B2, S3, Google Drive via rclone). Dumps are currently on the system disk and the attached USB drive, neither of which is encrypted.
-2. **Email delivery**: choose an SMTP provider so password reset works; until then only the operator can reset a password.
-3. **Alerting**: choose an uptime/alert service to watch `/api/health` and the `backup` container's health.
-4. **Product direction**: personal books only, or business books too (GST, invoices, double-entry, Tally XML export).
-5. **Public signup**: requires normalising the ledger into tables, account deletion, a privacy notice and consent flow (DPDP Act duties apply to hosted services from 13 May 2027).
-6. **Old ChatGPT Sites copy** (`ledger-money-desk.chiiirayu.chatgpt.site`): take it down.
+1. **Offsite backups** (skipped for now): a destination away from this building (e.g. Backblaze B2, S3, Google Drive via rclone). Dumps are on the system disk and, encrypted, on the attached USB drive.
+2. **Email delivery**: Gmail chosen. Add an app password to `.env` and move your login to an address that receives mail.
+3. **Product direction**: personal books only, or business books too (GST, invoices, double-entry, Tally XML export).
+4. **Public signup**: requires normalising the ledger into tables, account deletion, a privacy notice and consent flow (DPDP Act duties apply to hosted services from 13 May 2027).
+5. **Old ChatGPT Sites copy** (`ledger-money-desk.chiiirayu.chatgpt.site`): take it down.

@@ -112,11 +112,13 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transac
 - **Books check** (Statements page): per account, a coverage bar, missing statement periods, balances that do not carry over between statements, per-statement differences, and the bank balance as of the latest statement. **Details** on a statement edits its period and balances. Overview and Accounts flag accounts that need attention.
 - **Categories and tax:** Indian categories (Insurance, Loan EMI, Taxes, Fees & charges, Cash withdrawal, Dividends, Rental income, Donations, Education…) with direction-aware narration rules. Optional tax tags map transactions to ITR income heads and old-regime deduction sections (80C, 80CCD(1B), 80D, 80E, 80G, 24(b), HRA/80GG); suggestions come from narrations and can be confirmed or overridden. **Reports → Tax summary** totals them per financial year and exports a tax schedule CSV. Section names follow the Income-tax Act, 1961 (FY 2025-26); the Income-tax Act, 2025 renumbers them from tax year 2026-27. This is not a tax computation.
 - **Transfers between your accounts:** **Transactions → Find transfer pairs** proposes a debit in one account and a credit of the same amount in another within 3 days, when at least one side is a Transfer or both narrations share a reference number (UPI RRN, NEFT/IMPS UTR). Only mutually best matches are proposed; ties are listed as needing a manual link. Confirming links both legs and marks them reviewed Transfers. **Edit → Linked transfer** links or unlinks a leg by hand. Linked rows show “Transfer to/from <account>”, the type filter has **Unlinked transfers**, the Statements books check notes unlinked transfers per account, and CSV exports include `linked_account`. The server keeps a link only as exactly two Transfer legs of equal and opposite amounts in different accounts; anything else (for example after a statement is removed) is unlinked rather than rejected.
+- **Recurring payments and income** (Reports): the same payee in the same account at a weekly, monthly, quarterly or yearly interval (three occurrences, two for yearly; one skipped month allowed). Shows the typical amount, monthly-equivalent cost, next expected date, and series whose expected payment falls inside the dates your statements cover but is missing. Generic UPI/NEFT labels only group at an identical amount; same-day repeats and irregular orders are not series. Click a payee to see its transactions.
 - **Productivity:** bulk edit (category, type, tax tag, reviewed), rules that can back-fill transactions still in review, and 200-row paging on Transactions.
 
 ## Security additions
 
 - **Two-step verification** (TOTP with one-time backup codes) at `/security`, linked from **Your account & data**. Sign-in then asks for an authenticator code; devices can be trusted for 30 days; repeated wrong codes lock the account temporarily.
+- Overview shows a reminder until two-step verification is turned on.
 - Caddy sends a Content-Security-Policy with `default-src 'self'` and `connect-src 'self'`, so injected script cannot send data to another origin.
 
 ## Scheduled backups
@@ -129,6 +131,34 @@ The `backup` service wakes hourly. When the newest dump is older than `BACKUP_IN
 - `sudo docker compose ps` shows `backup` as unhealthy when either the local dump or the drive copy is older than the interval plus two hours. See why with `sudo docker compose logs --tail=20 backup`.
 - To set up a new drive: mount it (add it to `/etc/fstab` with `nofail`), then run `sudo install -d -o $(id -u) -g $(id -g) -m 700 /mnt/backup/ledger`. Set `BACKUP_DRIVE` if it is mounted somewhere else.
 - To prove a copy restores: `node deploy/restore-check.mjs /mnt/backup/ledger/scheduled-TIMESTAMP.dump`.
-- The drive is not encrypted, and it sits beside the server. It protects against a failed system disk or an accidental deletion, not against theft, fire or an attacker on this machine. An offsite copy is still needed for those.
+- **Encryption:** drive copies are encrypted with GnuPG (AES-256) using the passphrase in `.secrets/backup-drive-key` (mounted read-only into the backup container). Keep a copy of that passphrase in your password manager: without it the drive copies cannot be restored. Each copy is checked by decrypting it back to identical bytes and listing it with `pg_restore`. To restore: `gpg --batch --pinentry-mode loopback --passphrase-file .secrets/backup-drive-key -d /mnt/backup/ledger/FILE.dump.gpg > restore.dump`, then `node deploy/restore-check.mjs restore.dump`.
+- The drive sits beside the server. It protects against a failed system disk or an accidental deletion; encryption protects a lost or stolen drive. It does not protect against fire or an attacker on this machine: an offsite copy is still needed for those.
 
 Run the live bookkeeping checks with `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bookkeeping-browser.mjs`.
+
+## Alerts
+
+The `monitor` service checks every `MONITOR_INTERVAL_MINUTES` (default 5) and sends an ntfy push when something fails and when it recovers, with a reminder every 12 hours while it stays failing:
+
+- the public site (`APP_ORIGIN/api/health`, through Cloudflare);
+- a scheduled backup newer than the backup interval plus two hours;
+- an encrypted copy on the backup drive that recent (and whether the drive is mounted);
+- free space below 10% on the server disk or the backup drive.
+
+Messages name the failing check only. Install the ntfy app and subscribe to the topic in `NTFY_URL` in `.env` (the topic name is the only secret; keep it private). Send a test with `sudo docker compose exec monitor node /monitor/monitor.mjs test`. A machine that loses power or network cannot report itself; that needs a check from another machine.
+
+## Email (password reset)
+
+Email is off until SMTP credentials are set. Sending email does not open public signup: that also needs `SIGNUP_ENABLED=true`. For Gmail, create an app password (Google Account → Security → 2-Step Verification → App passwords), then set in `.env`:
+
+```
+MAIL_DELIVERY_ENABLED=true
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=you@gmail.com
+SMTP_PASSWORD=<16-character app password>
+MAIL_FROM=Ledger <you@gmail.com>
+```
+
+and recreate the API (`sudo docker compose up -d api`). Your Ledger login address must be a mailbox you can read: `ledger.chirayupatel.dev` has no mail server.

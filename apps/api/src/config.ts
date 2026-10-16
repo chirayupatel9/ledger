@@ -6,9 +6,11 @@ if (!local && !origin.startsWith('https://')) throw new Error('Public deployment
 const secret = required('AUTH_SECRET');
 if (secret.length < 32) throw new Error('AUTH_SECRET must contain at least 32 random characters');
 const mailEnabled = process.env.MAIL_DELIVERY_ENABLED !== 'false';
+// Email can be on for password resets while public signup stays closed.
+const signupEnabled = mailEnabled && process.env.SIGNUP_ENABLED === 'true';
 if (mailEnabled && !local && (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD)) throw new Error('Configure production SMTP credentials before public deployment');
 export const config = {
-  origin, secret, local, mailEnabled, databaseURL: required('DATABASE_URL'),
+  origin, secret, local, mailEnabled, signupEnabled, databaseURL: required('DATABASE_URL'),
   port: Number(process.env.PORT || 3001), smtpHost: required('SMTP_HOST'),
   smtpPort: Number(process.env.SMTP_PORT || 587), smtpSecure: process.env.SMTP_SECURE === 'true',
   smtpUser: process.env.SMTP_USER, smtpPassword: process.env.SMTP_PASSWORD,

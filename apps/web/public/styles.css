@@ -29,3 +29,5 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 .transfer-link{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:#2c6554;font-weight:600}
 .pair-list{display:grid;gap:8px;max-height:360px;overflow:auto;margin:12px 0}.pair-row{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12px;cursor:pointer}.pair-row input{margin-top:3px}.pair-row small{display:block;color:var(--muted);margin-top:4px;font-size:11px}
 .card .table-toolbar .bank-actions .btn{margin:0}
+.recurring-card{margin-top:22px}.recurring-line small{display:block;margin-top:4px}.recurring-line small.sub{display:inline}.recurring-line .recurring-next,.recurring-missing{display:block!important;margin-top:4px}.recurring-missing{color:#a5634e;font-size:11px}.recurring-line .text-link{font-size:12px;padding:0}
+.security-strip{background:#eef3f8;border-color:#d8e3ee;color:#4d6b86}.security-strip b{color:#2f4b63}.security-strip p{color:#5f7890}.security-strip .review-icon{background:#dde8f2}.security-strip .btn{margin-left:auto}

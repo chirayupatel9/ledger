@@ -9,13 +9,13 @@ import { config } from './config.js';
 @Controller('api')
 export class PublicController{
  @Get('health') async health(){await pool.query('SELECT 1');return {status:'ok'};}
- @Get('config') config(){return {google:!!(config.googleId&&config.googleSecret),signup:config.mailEnabled,recovery:config.mailEnabled};}
+ @Get('config') config(){return {google:!!(config.googleId&&config.googleSecret),signup:config.signupEnabled,recovery:config.mailEnabled};}
 }
 @Controller('api')
 @UseGuards(SessionGuard)
 export class LedgerController{
  constructor(private readonly ledger:LedgerService){}
- @Get('ledger') async load(@Req() req:UserRequest){return {...await this.ledger.load(req.user.id),user:{name:req.user.name,email:req.user.email}};}
+ @Get('ledger') async load(@Req() req:UserRequest){return {...await this.ledger.load(req.user.id),user:{name:req.user.name,email:req.user.email,twoFactorEnabled:!!req.user.twoFactorEnabled}};}
  @Put('ledger') async save(@Req() req:UserRequest,@Body() body:unknown,@Res() res:Response){
   const result=await this.ledger.save(req.user.id,body);const {conflict,...data}=result;
   return res.status(conflict?409:200).json(conflict?{...data,error:'Your ledger changed on another device. Review the latest data and retry.'}:data);

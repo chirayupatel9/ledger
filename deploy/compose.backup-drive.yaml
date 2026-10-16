@@ -7,10 +7,24 @@ services:
     environment:
       OFFSITE_DIR: /drive/${BACKUP_DRIVE_FOLDER:-ledger}
       OFFSITE_KEEP: ${BACKUP_DRIVE_KEEP:-60}
+      # Drive copies are encrypted with this passphrase file (keep a copy in your password manager).
+      OFFSITE_KEY_FILE: /run/secrets/backup-drive-key
+    volumes:
+      - ${BACKUP_DRIVE_KEY_FILE:-./.secrets/backup-drive-key}:/run/secrets/backup-drive-key:ro
+      - type: bind
+        source: ${BACKUP_DRIVE:-/mnt/backup}
+        target: /drive
+        bind:
+          propagation: rslave
+          create_host_path: false
+  monitor:
+    environment:
+      OFFSITE_DIR: /drive/${BACKUP_DRIVE_FOLDER:-ledger}
     volumes:
       - type: bind
         source: ${BACKUP_DRIVE:-/mnt/backup}
         target: /drive
+        read_only: true
         bind:
           propagation: rslave
           create_host_path: false
