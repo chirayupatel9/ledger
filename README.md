@@ -93,3 +93,13 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bank-ac
 ## Repository
 
 The private repository is [chirayupatel9/ledger](https://github.com/chirayupatel9/ledger). GitHub Actions checks types, parser/account validation, and production builds on pushes to `main` and pull requests. Deployment remains a separate Docker operation on this server. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.
+
+## Readable transactions and inline editing
+
+Transaction rows show a readable label with expandable original bank narration. A local parser recognizes explicit self transfers, payment channels, common merchants, and unambiguous name segments. Unknown narrations keep a shortened preview; the UI distinguishes suggestions, shortened narration, and your own labels. Bank data is not sent to an external language-model provider.
+
+Use **Edit** on a transaction to change its readable name, category, cash-flow type, note, and review status in place. Save/Cancel work on desktop and mobile. Leaving a changed draft asks before discarding it; failed saves retain the draft, and conflicting edits require reviewing the current record before retrying. Date, signed amount, account, and original narration remain tied to the imported statement.
+
+Custom names persist in PostgreSQL as optional transaction metadata. Search matches names, notes, and original reference numbers. CSV exports include both `description` (the bank narration) and `readable_name`; duplicate detection continues to use the original narration. Existing transactions gain readable labels automatically without rewriting their source records.
+
+Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transactions-browser.mjs` for live disposable-user tests of editing, concurrency, retry, search/export, duplicate detection, and mobile behavior.

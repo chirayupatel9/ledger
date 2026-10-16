@@ -27,3 +27,11 @@ Verified `https://ledger.chirayupatel.dev/login` with a valid certificate and HT
 - Live Chromium checks passed for direct Accounts access through login, refresh, Back/Forward, persisted account/date filters, mobile navigation labels, and the existing account/import/isolation workflow.
 - Injected a temporary archive-save failure, confirmed the database stayed unchanged, then verified retry archived the account successfully.
 - Unit tests reject external/unsupported login destinations and unsafe filter inputs. TypeScript checks and the Docker production build pass.
+
+## Readable narrations and inline transaction editing
+
+- All 24 domain/navigation tests and TypeScript checks passed; Docker production images built and the services are healthy.
+- Live Chromium tests passed using temporary users: automatic labels, expandable original narration, inline name/category/type/note/review edits, persistence after reload, Cancel/discard protection, failed-save retry, conflicting edits, remotely deleted records, and Back navigation during an in-flight save.
+- Search finds readable names, notes, and original references. CSV export retains both narration and label. Reimporting a renamed transaction is still detected as a duplicate.
+- Verified server rejection of oversized labels, text-only rendering of HTML-like labels, per-user isolation, and mobile editing without horizontal overflow. Inspected desktop/mobile screenshots.
+- Existing bank-account, import, reassignment, archive, backup/restore, and navigation browser regressions passed. Owner records were not used. Committed narration fixtures use synthetic reference numbers.
