@@ -41,7 +41,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 
 | Gap | Why it matters | Status |
 | --- | --- | --- |
-| Backups are manual and kept only on the same host | One disk failure loses every statement. | Done: daily verified `scheduled-*.dump` backups, 14 kept, health-checked. Offsite copy **needs decision** (where to send them). |
+| Backups are manual and kept only on the same host | One disk failure loses every statement. | Done: daily verified `scheduled-*.dump` backups (14 kept), copied and verified hourly to the external USB drive at `/mnt/backup/ledger` (60 kept), health-checked. A copy away from this building **needs decision**. |
 | No two-step verification | Bank statements behind a single password on the public Internet. | Done (TOTP + backup codes, opt-in at `/security`) |
 | Content-Security-Policy has no `script-src`/`connect-src` | An injected script could exfiltrate financial data to another origin. | Done |
 | Test logins left in production DB (`*@example.test`) | Verified accounts nobody owns. | Done (3 accounts removed after a verified backup) |
@@ -59,7 +59,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 
 ## Decisions still needed from the owner
 
-1. **Offsite backups**: choose a destination (e.g. Backblaze B2, S3, Google Drive via rclone). Scheduled dumps are written to `backups/` on this machine only.
+1. **Offsite backups**: choose a destination away from this building (e.g. Backblaze B2, S3, Google Drive via rclone). Dumps are currently on the system disk and the attached USB drive, neither of which is encrypted.
 2. **Email delivery**: choose an SMTP provider so password reset works; until then only the operator can reset a password.
 3. **Alerting**: choose an uptime/alert service to watch `/api/health` and the `backup` container's health.
 4. **Product direction**: personal books only, or business books too (GST, invoices, double-entry, Tally XML export).

@@ -119,6 +119,14 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transac
 
 ## Scheduled backups
 
-The `backup` service runs `pg_dump` every `BACKUP_INTERVAL_HOURS` (default 24), verifies each dump with `pg_restore --list`, writes `backups/scheduled-*.dump` (mode 0600) and keeps the newest `BACKUP_KEEP` (default 14). Manual `ledger-*.dump` files are never pruned. `sudo docker compose ps` shows the service as unhealthy if no backup is newer than the interval plus two hours. Copy these files off this machine: they are on the same disk as the database.
+The `backup` service wakes hourly. When the newest dump is older than `BACKUP_INTERVAL_HOURS` (default 24) it runs `pg_dump`, verifies the dump with `pg_restore --list`, writes `backups/scheduled-*.dump` (mode 0600) and keeps the newest `BACKUP_KEEP` (default 14). Manual `ledger-*.dump` files are never pruned.
+
+**Backup drive (onsite second copy).** On this host, `.env` sets `COMPOSE_FILE=compose.yaml:deploy/compose.backup-drive.yaml`, which passes the external USB drive mounted at `/mnt/backup` (`/etc/fstab`, `nofail`) into the backup container. Every hour, each dump not yet on the drive is copied to `/mnt/backup/ledger/`, synced, compared byte-for-byte and checked with `pg_restore --list`. The newest `BACKUP_DRIVE_KEEP` (default 60) scheduled dumps are kept there, and manual dumps are kept indefinitely. Drop's backups live beside it in `/mnt/backup/drop`.
+
+- The folder must already exist on the drive. If the drive is unplugged, the empty mount point has no `ledger` folder, so the service refuses to copy rather than writing to the system disk. Copies catch up automatically after the drive is mounted again; no restart is needed.
+- `sudo docker compose ps` shows `backup` as unhealthy when either the local dump or the drive copy is older than the interval plus two hours. See why with `sudo docker compose logs --tail=20 backup`.
+- To set up a new drive: mount it (add it to `/etc/fstab` with `nofail`), then run `sudo install -d -o $(id -u) -g $(id -g) -m 700 /mnt/backup/ledger`. Set `BACKUP_DRIVE` if it is mounted somewhere else.
+- To prove a copy restores: `node deploy/restore-check.mjs /mnt/backup/ledger/scheduled-TIMESTAMP.dump`.
+- The drive is not encrypted, and it sits beside the server. It protects against a failed system disk or an accidental deletion, not against theft, fire or an attacker on this machine. An offsite copy is still needed for those.
 
 Run the live bookkeeping checks with `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bookkeeping-browser.mjs`.

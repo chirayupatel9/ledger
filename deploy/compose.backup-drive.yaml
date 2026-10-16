@@ -1,0 +1,16 @@
+# Second, onsite copy of every backup on a locally attached drive.
+# Enable with COMPOSE_FILE=compose.yaml:deploy/compose.backup-drive.yaml in .env.
+# The drive is passed through with rslave propagation, so unplugging, replugging and remounting it is
+# seen by the running container. The folder must already exist on the drive (see README).
+services:
+  backup:
+    environment:
+      OFFSITE_DIR: /drive/${BACKUP_DRIVE_FOLDER:-ledger}
+      OFFSITE_KEEP: ${BACKUP_DRIVE_KEEP:-60}
+    volumes:
+      - type: bind
+        source: ${BACKUP_DRIVE:-/mnt/backup}
+        target: /drive
+        bind:
+          propagation: rslave
+          create_host_path: false
