@@ -14,7 +14,7 @@ test('recognizes merchants, refunds, names and common payment markers conservati
  assert.equal(transactionLabel({description:'UPI/RAHUL/883421'}).title,'RAHUL');
  assert.equal(transactionLabel({description:'ATM/CASH WITHDRAWAL/123456'}).title,'Cash withdrawal');
  assert.notEqual(transactionLabel({description:'ATM REVERSAL/123456'}).title,'Cash withdrawal');assert.notEqual(transactionLabel({description:'ATM annual fee/123456'}).title,'Cash withdrawal');
- assert.equal(transactionLabel({description:'UPI/ALICE/BOB/123456'}).source,'Bank narration');
+ assert.equal(transactionLabel({description:'UPI/ALICE/BOB/123456'}).title,'UPI transaction');
  assert.equal(transactionLabel({description:'Salary · Acme Technologies'}).title,'Salary · Acme Technologies');
  const unknown='UNKNOWN BANK NARRATION '.repeat(20);assert.ok(transactionLabel({description:unknown}).title.length<=72);assert.equal(transactionLabel({description:unknown}).source,'Shortened narration');
 });
@@ -32,4 +32,33 @@ test('server preserves bounded custom names and rejects invalid input',()=>{
 });
 test('browser and server narration logic remain identical',()=>{
  for(const file of ['core.js','transaction-labels.js'])assert.equal(readFileSync(new URL('../packages/domain/'+file,import.meta.url),'utf8'),readFileSync(new URL('../apps/web/public/'+file,import.meta.url),'utf8'));
+});
+
+test('UPI and abbreviated UP narrations remove references, bank codes and handles',()=>{
+ for(const description of ['UPI/DR/000111222333/RAHUL SHARMA/HDFC/rahul@okhdfcbank/Payment','UPI-000111222333-RAHUL SHARMA-HDFC-rahul@okhdfcbank','UP/DR/000111222333/RAHUL SHARMA/ICICI/Payment','UPI/RAHUL SHARMA/rahul sharma/000111222333']){
+  const t={description,amount:-50000};assert.equal(transactionLabel(t).title,'RAHUL SHARMA');assert.equal(transactionLabel(t).channel,'UPI');assert.equal(t.description,description);
+ }
+ assert.equal(transactionLabel({description:'UPI/CR/000111222333/HDFC/1234567890@upi',amount:50000}).title,'UPI credit');
+ assert.equal(transactionLabel({description:'UPI/DR/000111222333/ALICE/BOB',amount:-50000}).title,'UPI payment');
+ assert.equal(transactionLabel({description:'UP hardware store',amount:-50000}).channel,'');
+});
+test('other payment formats get useful names without treating credits as income',()=>{
+ const fixtures=[
+ ['NEFT CR-HDFC0000123-ACME PRIVATE LTD-N000111222333',50000,'ACME PRIVATE LTD'],
+ ['IMPS/P2A/000111222333/ANITA/ICIC0000123',-50000,'ANITA'],
+ ['RTGS/000111222333/HDFC0000123',-50000,'RTGS transfer'],
+ ['POS/000111222333/LOCAL GROCERY',-50000,'LOCAL GROCERY'],
+ ['ECOM/000111222333',-50000,'Card payment'],
+ ['NACH/000111222333',-50000,'Automatic debit'],
+ ['ECS/000111222333',50000,'Automatic credit'],
+ ['CHQ/000111222333',50000,'Cheque credit'],
+ ['ATM/000111222333',-50000,'Cash withdrawal'],
+ ['ATM/CASH DEPOSIT/000111222333',50000,'Cash deposit'],
+ ['ATM annual fee/000111222333',-50000,'Bank charges'],
+ ['UPI/REV/000111222333/SWIGGY',50000,'Reversal · Swiggy'],
+ ['UPI/REFUND/000111222333/RAHUL/HDFC',50000,'Refund · RAHUL'],
+ ['UPI/FAILED/000111222333',-50000,'Failed transaction · UPI payment']
+ ];
+ for(const [description,amount,title] of fixtures){const t={description,amount,type:'Transfer',review:true};assert.equal(transactionLabel(t).title,title,description);assert.equal(t.type,'Transfer');assert.equal(t.review,true);}
+ assert.equal(transactionLabel({description:'UPI/DR/000111222333/RAHUL',displayName:'My custom name'}).title,'My custom name');
 });

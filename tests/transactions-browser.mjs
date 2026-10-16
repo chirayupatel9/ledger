@@ -18,11 +18,14 @@ try{
  const initial=await state();initial.state={schemaVersion:2,initialized:true,accounts:[{id:'a',name:'ICICI Personal',bank:'ICICI Bank',type:'Savings',last4:'1234',currency:'INR',archived:false}],statements:[{id:'s',accountId:'a',account:'ICICI Personal',name:'transactions.csv',count:3,created:'2026-10-16'}],rules:[],transactions:[
  {id:'t1',description:raw,type:'Transfer',category:'Transfers',amount:-50000},
  {id:'t2',description:'UPI/DR/123456789012/SWIGGY/ICIC0001234',type:'Expense',category:'Food & dining',amount:-12000},
- {id:'t3',description:'UPI/ALICE/BOB/123456',type:'Income',category:'Uncategorized',amount:50000}
+ {id:'t3',description:'UPI/ALICE/BOB/123456',type:'Income',category:'Uncategorized',amount:50000},
+ {id:'t4',description:'UPI/DR/222333444555/RAHUL SHARMA/HDFC/rahul@okhdfcbank/Payment',type:'Expense',category:'Uncategorized',amount:-25000},
+ {id:'t5',description:'NEFT CR-HDFC0000123-ACME PRIVATE LTD-N333444555666',type:'Income',category:'Uncategorized',amount:75000}
  ].map(t=>({...t,accountId:'a',account:'ICICI Personal',statementId:'s',date:'2026-10-01',review:true}))};
  assert.equal((await put(initial)).status(),200);
  await page.goto(base+'/transactions');const row=id=>page.locator(`[data-transaction="${id}"]`),form=()=>page.locator('#inline-transaction-form');
  await row('t1').waitFor();assert.equal(await row('t1').locator('.transaction-name').innerText(),'Self transfer');assert.equal(await row('t2').locator('.transaction-name').innerText(),'Swiggy');
+ assert.equal(await row('t3').locator('.transaction-name').innerText(),'UPI credit');assert.equal(await row('t4').locator('.transaction-name').innerText(),'RAHUL SHARMA');assert.equal(await row('t5').locator('.transaction-name').innerText(),'ACME PRIVATE LTD');
  await row('t1').locator('summary').click();assert.equal(await row('t1').locator('.bank-narration p').innerText(),raw);
  await row('t1').getByRole('button',{name:'Edit',exact:false}).click();assert.equal(await page.locator('#modal').evaluate(el=>el.open),false);assert.equal(await form().getByRole('option',{name:'Income',exact:true}).evaluate(el=>el.disabled),true);
  await form().getByLabel('Readable name').fill('Transfer to my savings');await form().getByLabel('Note',{exact:true}).fill('Monthly savings');await form().getByLabel('Reviewed', {exact:false}).check();

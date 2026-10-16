@@ -96,7 +96,7 @@ The private repository is [chirayupatel9/ledger](https://github.com/chirayupatel
 
 ## Readable transactions and inline editing
 
-Transaction rows show a readable label with expandable original bank narration. A local parser recognizes explicit self transfers, payment channels, common merchants, and unambiguous name segments. Unknown narrations keep a shortened preview; the UI distinguishes suggestions, shortened narration, and your own labels. Bank data is not sent to an external language-model provider.
+Transaction rows show a readable label with expandable original bank narration. A local parser recognizes explicit self transfers, UPI (including structured UP abbreviations), NEFT/IMPS/RTGS, card purchases, automatic payments, cheques, cash transactions, common merchants, and unambiguous name segments. It removes reference numbers, bank routing codes, and payment handles from labels, and preserves refund/reversal/failure markers. Ambiguous supported formats use a payment-channel label; unknown formats keep a shortened preview; the UI distinguishes suggestions, shortened narration, and your own labels. Bank data is not sent to an external language-model provider.
 
 Use **Edit** on a transaction to change its readable name, category, cash-flow type, note, and review status in place. Save/Cancel work on desktop and mobile. Leaving a changed draft asks before discarding it; failed saves retain the draft, and conflicting edits require reviewing the current record before retrying. Date, signed amount, account, and original narration remain tied to the imported statement.
 
