@@ -36,15 +36,16 @@ export class LedgerService{
  async upload(owner:string,id:string,file:Express.Multer.File){
   if(!file||!id||!/^[a-zA-Z0-9-]{1,100}$/.test(id))throw new HttpException('Select a statement file.',400);
   if(!file.size)throw new HttpException('The statement file is empty.',400);
-  const pdf=/\.pdf$/i.test(file.originalname),csv=/\.(csv|tsv)$/i.test(file.originalname);
-  if(!pdf&&!csv)throw new HttpException('Only PDF, CSV, and TSV files are supported.',400);
-  if(pdf&&file.buffer.subarray(0,5).toString()!=='%PDF-')throw new HttpException('This file does not appear to be a PDF.',400);
+  const ext=file.originalname.match(/\.(pdf|csv|tsv|xlsx|xls)$/i)?.[1].toLowerCase();
+  if(!ext)throw new HttpException('Only PDF, CSV, TSV, XLS, and XLSX files are supported.',400);
+  if(ext==='pdf'&&file.buffer.subarray(0,5).toString()!=='%PDF-')throw new HttpException('This file does not appear to be a PDF.',400);
+  if(ext==='xlsx'&&file.buffer.subarray(0,4).toString('hex')!=='504b0304')throw new HttpException('This file does not appear to be an XLSX workbook.',400);
   return transaction(async client=>{
    await lock(client,owner); // Serializes quota checks and ledger saves for this owner.
    const prior=await client.query('SELECT id,name,mime,size FROM files WHERE owner=$1 AND id=$2',[owner,id]);if(prior.rowCount)return prior.rows[0];
    const usage=await client.query('SELECT count(*)::int AS count,coalesce(sum(size),0)::bigint AS bytes FROM files WHERE owner=$1',[owner]);
    if(usage.rows[0].count>=2000||Number(usage.rows[0].bytes)+file.size>1024**3)throw new HttpException('Account storage limit reached (1 GiB / 2,000 files).',413);
-   const name=file.originalname.replace(/[\r\n\x00-\x1f]/g,'').slice(0,255),mime=pdf?'application/pdf':'text/csv';
+   const name=file.originalname.replace(/[\r\n\x00-\x1f]/g,'').slice(0,255),mime=({pdf:'application/pdf',csv:'text/csv',tsv:'text/tab-separated-values',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel'} as Record<string,string>)[ext];
    await client.query('INSERT INTO files(owner,id,name,mime,size,data) VALUES($1,$2,$3,$4,$5,$6)',[owner,id,name,mime,file.size,file.buffer]);
    return {id,name,mime,size:file.size};
   });

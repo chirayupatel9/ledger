@@ -103,3 +103,22 @@ Use **Edit** on a transaction to change its readable name, category, cash-flow t
 Custom names persist in PostgreSQL as optional transaction metadata. Search matches names, notes, and original reference numbers. CSV exports include both `description` (the bank narration) and `readable_name`; duplicate detection continues to use the original narration. Existing transactions gain readable labels automatically without rewriting their source records.
 
 Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transactions-browser.mjs` for live disposable-user tests of editing, concurrency, retry, search/export, duplicate detection, and mobile behavior.
+
+## Indian bookkeeping features
+
+- **Imports:** Excel (`.xls`/`.xlsx`, read in the browser with SheetJS), CSV and text-based PDFs. Column detection covers SBI, HDFC, ICICI, Axis and Kotak headers including `DR`/`CR`, `Dr / Cr`, `Withdrawal Amt.` and running balance columns. Excel date cells are read from their serial value, so US date formats cannot swap day and month. Separator, total and footer rows are skipped; unreadable rows that contain figures are still reported.
+- **Reconciliation:** each import shows the statement period and opening/closing balance (taken from the running balance, the file's header or typed in) and checks that opening + credits − debits = closing. Rows that break the running balance are listed before saving. Duplicates use date, narration, amount and, when both rows have one, running balance, so two identical UPI payments on the same day are not merged.
+- **Books check** (Statements page): per account, a coverage bar, missing statement periods, balances that do not carry over between statements, per-statement differences, and the bank balance as of the latest statement. **Details** on a statement edits its period and balances. Overview and Accounts flag accounts that need attention.
+- **Categories and tax:** Indian categories (Insurance, Loan EMI, Taxes, Fees & charges, Cash withdrawal, Dividends, Rental income, Donations, Education…) with direction-aware narration rules. Optional tax tags map transactions to ITR income heads and old-regime deduction sections (80C, 80CCD(1B), 80D, 80E, 80G, 24(b), HRA/80GG); suggestions come from narrations and can be confirmed or overridden. **Reports → Tax summary** totals them per financial year and exports a tax schedule CSV. Section names follow the Income-tax Act, 1961 (FY 2025-26); the Income-tax Act, 2025 renumbers them from tax year 2026-27. This is not a tax computation.
+- **Productivity:** bulk edit (category, type, tax tag, reviewed), rules that can back-fill transactions still in review, and 200-row paging on Transactions.
+
+## Security additions
+
+- **Two-step verification** (TOTP with one-time backup codes) at `/security`, linked from **Your account & data**. Sign-in then asks for an authenticator code; devices can be trusted for 30 days; repeated wrong codes lock the account temporarily.
+- Caddy sends a Content-Security-Policy with `default-src 'self'` and `connect-src 'self'`, so injected script cannot send data to another origin.
+
+## Scheduled backups
+
+The `backup` service runs `pg_dump` every `BACKUP_INTERVAL_HOURS` (default 24), verifies each dump with `pg_restore --list`, writes `backups/scheduled-*.dump` (mode 0600) and keeps the newest `BACKUP_KEEP` (default 14). Manual `ledger-*.dump` files are never pruned. `sudo docker compose ps` shows the service as unhealthy if no backup is newer than the interval plus two hours. Copy these files off this machine: they are on the same disk as the database.
+
+Run the live bookkeeping checks with `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bookkeeping-browser.mjs`.
