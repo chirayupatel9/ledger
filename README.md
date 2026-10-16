@@ -82,11 +82,11 @@ A running local stack is not a public production launch. The live domain and HTT
 
 ## Bank accounts
 
-Use **Accounts** in the sidebar to add or edit bank/institution, account nickname, type, and optional last four digits. Accounts use stable IDs, so renaming updates their statements and transactions without breaking duplicate detection. Full account numbers are not collected. INR is currently the only supported currency.
+Open [Accounts](https://ledger.chirayupatel.dev/accounts) from the sidebar, mobile navigation, Overview, or account settings to add or edit bank/institution, account nickname, type, and optional last four digits. Accounts use stable IDs, so renaming updates their statements and transactions without breaking duplicate detection. Full account numbers are not collected. INR is currently the only supported currency.
 
 Imports select an existing active account or let you create one first. **Statements → Change account** moves an import and all its transactions while retaining the original file. Review overlapping imports after a move. Archive accounts to hide them from new import choices while retaining history; reactivate them to import again. Only empty accounts can be deleted.
 
-The bank-account filter applies to transactions, summaries, reports, and the statement library. Account cards show all imported credits, debits, and net movement, including transfers; these are not bank balances. JSON backups include account metadata and IDs. Older backups and existing ledgers are upgraded automatically by migration 2; old open browser tabs must reload before saving. A pre-migration database backup is retained locally.
+Workspace pages have direct URLs. Login returns you to the requested page, and account/date filters survive refresh and browser Back/Forward navigation. The bank-account filter applies to transactions, summaries, reports, and the statement library. Account cards show all imported credits, debits, and net movement, including transfers; these are not bank balances. JSON backups include account metadata and IDs. Older backups and existing ledgers are upgraded automatically by migration 2; old open browser tabs must reload before saving. A pre-migration database backup is retained locally.
 
 Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bank-accounts-browser.mjs` to verify the live workflow using temporary test accounts that are removed afterward. This test does not use or change the owner's financial records.
 

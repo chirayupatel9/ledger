@@ -1,7 +1,7 @@
 'use client';
 import {useState,type FormEvent} from 'react';
 type Mode='login'|'signup'|'forgot'|'reset'|'change';
-export default function AuthForm({mode,configured,google,signup,recovery,linkError}:{mode:Mode;configured:boolean;google:boolean;signup:boolean;recovery:boolean;linkError?:boolean}){
+export default function AuthForm({mode,configured,google,signup,recovery,linkError,returnTo='/'}:{mode:Mode;configured:boolean;google:boolean;signup:boolean;recovery:boolean;linkError?:boolean;returnTo?:string}){
  const [busy,setBusy]=useState(false),[error,setError]=useState(linkError?'This link has expired or is invalid. Request a new link.':''),[message,setMessage]=useState('');
  async function request(action:string,body:Record<string,string>={}){
   const paths:Record<string,string>={login:'sign-in/email',signup:'sign-up/email',forgot:'request-password-reset',reset:'reset-password',google:'sign-in/social',change:'change-password'};
@@ -13,7 +13,7 @@ export default function AuthForm({mode,configured,google,signup,recovery,linkErr
   if(action==='forgot')return {message:'If an account exists for that address, a reset link is on its way.'};
   return data;
  }
- async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setError('');const f=new FormData(event.currentTarget),body=Object.fromEntries(f) as Record<string,string>;if((mode==='signup'||mode==='reset'||mode==='change')&&body.password!==body.confirm){setError('The passwords do not match.');return}delete body.confirm;setBusy(true);try{const data=await request(mode,body);if(mode==='login'||mode==='reset'||mode==='change'){window.location.assign(mode==='reset'?'/login':'/');return}setMessage(data.message||'Check your email for the next step.')}catch(e){setError(e instanceof Error?e.message:'Unable to connect. Please retry.')}finally{setBusy(false)}}
+ async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();setError('');const f=new FormData(event.currentTarget),body=Object.fromEntries(f) as Record<string,string>;if((mode==='signup'||mode==='reset'||mode==='change')&&body.password!==body.confirm){setError('The passwords do not match.');return}delete body.confirm;setBusy(true);try{const data=await request(mode,body);if(mode==='login'||mode==='reset'||mode==='change'){window.location.assign(mode==='reset'?'/login':mode==='login'?returnTo:'/');return}setMessage(data.message||'Check your email for the next step.')}catch(e){setError(e instanceof Error?e.message:'Unable to connect. Please retry.')}finally{setBusy(false)}}
  async function googleLogin(){setBusy(true);setError('');try{const data=await request('google');if(!data.url)throw Error('Could not start Google sign-in.');window.location.assign(data.url)}catch(e){setError(e instanceof Error?e.message:'Google sign-in is unavailable.');setBusy(false)}}
  return <div>{!configured&&<div className="auth-notice" role="status">This option is currently unavailable. Please sign in with your existing account.</div>}{error&&<div className="auth-error" role="alert">{error}</div>}{message?<div className="auth-success" role="status"><span className="mail-icon">✉</span><h2>Check your inbox</h2><p>{message}</p><a href="/login" className="auth-primary">Back to sign in</a></div>:<><form onSubmit={submit}>
  {mode==='signup'&&<label>Full name<input name="name" autoComplete="name" maxLength={100} required placeholder="Your name" disabled={!configured||busy}/></label>}

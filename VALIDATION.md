@@ -20,3 +20,10 @@ Verified `https://ledger.chirayupatel.dev/login` with a valid certificate and HT
 - Deployed migration 2 after a private PostgreSQL backup.
 - Live Chromium workflow passes with temporary users: add/edit/rename accounts, duplicate-name rejection, import and duplicate preview after rename, archive exclusion from imports, account filtering, statement reassignment with original-file preservation, deletion of empty accounts only, stale-client/invalid-reference rejection, cross-user isolation, backup/restore, persisted reload, and mobile layout.
 - TypeScript checks pass. Owner financial records were not used for browser QA.
+
+## Account navigation and save retries
+
+- Added protected workspace URLs, a safe login return destination, and URL-backed account/reporting-period filters.
+- Live Chromium checks passed for direct Accounts access through login, refresh, Back/Forward, persisted account/date filters, mobile navigation labels, and the existing account/import/isolation workflow.
+- Injected a temporary archive-save failure, confirmed the database stayed unchanged, then verified retry archived the account successfully.
+- Unit tests reject external/unsupported login destinations and unsafe filter inputs. TypeScript checks and the Docker production build pass.
