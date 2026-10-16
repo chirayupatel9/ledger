@@ -5,7 +5,7 @@ export const colors=categories.map(c=>palette[c]);
 // [category, pattern, direction]. First match wins, so specific Indian narrations come before generic merchants.
 const rules=[
  ['Taxes',/advance tax|self[- ]?assessment|income ?tax|\bitns ?2\d\d\b|\boltas\b|\bcbdt\b|tin[- ]?nsdl|e-?pay ?tax|\bcbic\b|gst (?:payment|challan)|property tax|professional tax|\btds\b/i,'out'],
- ['Fees & charges',/bank charges|service charges?|sms (?:alert )?(?:charges?|chgs?)|annual (?:fee|charges?)|\bamc\b|min(?:imum)?\.? ?bal|non[- ]?maint|penal|late (?:payment )?fee|cash handling|(?:atm|imps|neft|rtgs|dc|debit card|card) (?:fees?|chgs?|charges?)|\bchgs?\b|\bchrgs?\b|gst on (?:charges|fees?)/i,'out'],
+ ['Fees & charges',/bank charges|service charges?|sms (?:alert )?(?:charges?|chgs?)|annual (?:fee|charges?)|\bamc\b|min(?:imum)?\.? ?bal|non[- ]?maint|penal|late (?:payment )?fee|cash handling|(?:atm|imps|neft|rtgs|dc|debit card|card) (?:fees?|chgs?|charges?)|\bchgs?\b|\bchrgs?\b|gst on (?:charges|fees?)|finance charges?|interest (?:charges?|on)|annual fee|renewal fee|joining fee|over ?limit|surcharge|cash advance fee|mark-?up|forex|cross[- ]currency|dcc fee|\b[cis]?gst\b/i,'out'],
  ['Cash withdrawal',/\batm\b|cash withdrawal|cash wdl|\bnwd\b|\batw\b|\bcwdr?\b|self withdrawal/i,'out'],
  ['Salary',/salary|payroll|\bsal\b/i,'in'],
  ['Dividends',/dividend|\bdiv\b/i,'in'],
@@ -25,12 +25,14 @@ const rules=[
  ['Entertainment',/netflix|spotify|hotstar|jiocinema|sonyliv|zee5|prime video|bookmyshow|\bpvr\b|\binox\b|cinema|youtube|google play|apple\.com/i],
  ['Rent',/\brent\b|nobroker/i,'out'],
 ];
-export function classify(description,amount,custom=[]){
+// On a credit card, a credit is a bill payment (a transfer from your bank) unless it is a refund, reversal, waiver or cashback.
+export function classify(description,amount,custom=[],{card=false}={}){
  const direction=amount>=0?'in':'out';
  const own=custom.find(r=>description.toLowerCase().includes(r.keyword.toLowerCase()));
- const found=own?.category||rules.find(([,re,d])=>(!d||d===direction)&&re.test(description))?.[0];
- const transfer=/self transfer|own account|credit card (?:payment|bill)|cc ?payment|\bccpay\b|cash dep|\bcdm\b|\bby cash\b/i.test(description)||found==='Transfers'||found==='Investments';
- const type=transfer?'Transfer':amount>=0?(/refund|reversal/i.test(description)?'Refund':'Income'):'Expense';
+ let found=own?.category||rules.find(([,re,d])=>(!d||d===direction)&&re.test(description))?.[0];
+ if(card&&amount>0&&!own)found=/cash ?back|reward/i.test(description)?'Other income':/refund|revers|cancel|waiver/i.test(description)?found:'Transfers';
+ const transfer=(!card&&/self transfer|own account|credit card|card ?bill|cc ?payment|\bcc\b.*\b(?:bill|autopay|pymt|payment)\b|\bccpay\b|\bcred club\b|cash dep|\bcdm\b|\bby cash\b/i.test(description))||found==='Transfers'||found==='Investments';
+ const type=transfer?'Transfer':amount>=0?(/refund|revers|waiver/i.test(description)?'Refund':'Income'):'Expense';
  const category=transfer?(found==='Investments'?found:'Transfers'):found||'Uncategorized';
  return {category,type,review:!found||transfer||(amount>0&&!['Salary','Interest','Dividends'].includes(category))};
 }
@@ -40,9 +42,16 @@ export function parseMoney(raw){
  if(!/^[+-]?\d+(?:\.\d{1,2})?$/.test(s))return null;
  const v=Math.round(Number(s)*100);return neg?-Math.abs(v):v;
 }
+const monthNames=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+// Card statements print charges unsigned (or with Dr/D) and credits with Cr/C, a leading + or −, or brackets.
+const signSuffix=/\s*(?:cr|dr|c|d)\.?$/i,creditMark=s=>/(?:cr|c)\.?$/i.test(s)||/^[+(]|^-/.test(s);
+export function cardAmount(raw){const s=String(raw??'').trim(),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,'').replace(/^\((.*)\)$/,'$1'));return v===null||!v?null:creditMark(s)?Math.abs(v):-Math.abs(v);}
+// Total due is owed (negative in Ledger) unless printed as a credit balance.
+export function cardBalance(raw){const s=String(raw??'').trim(),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,''));return v===null?null:!v?0:creditMark(s)?Math.abs(v):-Math.abs(v);}
+export const looksLikeCardStatement=text=>/minimum (?:amount )?(?:due|payable)|payment due date/i.test(text);
 export function parseDate(raw){
  const s=String(raw??'').trim();let y,m,d;let a=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
- if(a){[,y,m,d]=a}else{a=s.match(/^(\d{1,2})[-/ .](\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*(\d{2,4})/);if(!a)return null;[,d,m,y]=a;if(isNaN(+m))m=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m.toLowerCase().slice(0,3))+1;if(String(y).length===2)y=2000+Number(y);}
+ if(a){[,y,m,d]=a}else if((a=s.match(/^([A-Za-z]{3,9})\.? (\d{1,2})(?:st|nd|rd|th)?,? (\d{4})\b/))){[,m,d,y]=a;m=monthNames.indexOf(m.toLowerCase().slice(0,3))+1}else{a=s.match(/^(\d{1,2})[-/ .](\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*(\d{2,4})/);if(!a)return null;[,d,m,y]=a;if(isNaN(+m))m=monthNames.indexOf(m.toLowerCase().slice(0,3))+1;if(String(y).length===2)y=2000+Number(y);}
  y=+y;m=+m;d=+d;const dt=new Date(Date.UTC(y,m-1,d));if(y<1900||y>2100||dt.getUTCFullYear()!==y||dt.getUTCMonth()!==m-1||dt.getUTCDate()!==d)return null;
  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
@@ -53,7 +62,7 @@ export function tokenizeCSV(text){
  row.push(field.trim());if(row.some(Boolean))rows.push(row);if(quote)throw Error('The CSV contains an unclosed quoted field. Please export it again.');
  return rows;
 }
-const datePattern=String.raw`(\d{1,2}[-/ .](?:\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*\d{2,4}|\d{4}-\d{2}-\d{2})`;
+const datePattern=String.raw`(\d{1,2}[-/ .](?:\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*\d{2,4}|\d{4}-\d{2}-\d{2}|[A-Za-z]{3,9}\.? \d{1,2},? \d{4})`;
 // Bank exports usually state the period above or below the table, e.g. "Statement From : 01/04/26 To : 30/06/26".
 export function findPeriod(text){
  const t=String(text||'').replace(/\s+/g,' ');
@@ -81,7 +90,7 @@ export function guessMapping(headers){
  const balance=find(/balance|^bal\.?$/i);
  return {date,description,amount,debit,credit,direction,balance};
 }
-export function mapRows(data,mapping,account,custom=[]){
+export function mapRows(data,mapping,account,custom=[],{card=false}={}){
  const transactions=[],invalid=[];let skipped=0,openingHint=null,closingHint=null,last=-2,footer=false;
  data.rows.forEach((r,i)=>{
   if(footer||r.every(c=>/^[\s*=_.\-–—]*$/.test(String(c??'')))){skipped++;return;}
@@ -89,7 +98,7 @@ export function mapRows(data,mapping,account,custom=[]){
   const cell=k=>mapping[k]>=0?String(r[mapping[k]]??'').trim():'';
   const date=parseDate(cell('date')),description=cell('description').replace(/\s+/g,' '),balance=parseMoney(cell('balance'));
   let amount=null,conflict=false;
-  if(mapping.amount>=0){amount=parseMoney(cell('amount'));const dir=cell('direction');if(amount!==null&&/^(?:dr|debit|withdrawal|d)\.?$/i.test(dir))amount=-Math.abs(amount);else if(amount!==null&&/^(?:cr|credit|deposit|c)\.?$/i.test(dir))amount=Math.abs(amount);}
+  if(mapping.amount>=0){amount=card&&mapping.direction<0?cardAmount(cell('amount')):parseMoney(cell('amount'));const dir=cell('direction');if(amount!==null&&/^(?:dr|debit|withdrawal|d)\.?$/i.test(dir))amount=-Math.abs(amount);else if(amount!==null&&/^(?:cr|credit|deposit|c)\.?$/i.test(dir))amount=Math.abs(amount);}
   else{const debit=parseMoney(cell('debit')),credit=parseMoney(cell('credit'));if(debit&&credit)conflict=true;else if(debit!==null||credit!==null)amount=Math.abs(credit||0)-Math.abs(debit||0);}
   if(!amount&&/^(?:opening|closing) bal|^balance (?:b\/f|c\/f|brought|carried|forward)|^[bc]\/f\b|brought forward|carried forward/i.test(description)){if(balance!==null){if(/opening|b\/f|brought/i.test(description))openingHint??=balance;else closingHint=balance;}skipped++;return;}
   if(!date||!description||!amount||conflict){
@@ -102,7 +111,7 @@ export function mapRows(data,mapping,account,custom=[]){
    if(!date&&(!description||/^(?:grand |sub ?)?total\b/i.test(description)||/^(?:grand |sub ?)?total\b/i.test(cell('date')))){skipped++;return;}
    invalid.push(i+2);return;
   }
-  transactions.push({id:crypto.randomUUID(),date,description,amount,account,...(balance!==null?{balance}:{}),...classify(description,amount,custom)});last=i;
+  transactions.push({id:crypto.randomUUID(),date,description,amount,account,...(balance!==null?{balance}:{}),...classify(description,amount,custom,{card})});last=i;
  });
  return {transactions,invalid,skipped,openingHint,closingHint};
 }

@@ -31,6 +31,12 @@ export function transactionLabel(transaction){
  let title='';
  if(/\b(?:self[\s/-]*transfer|own[\s/-]*account)\b/i.test(raw))title='Self transfer';
  else if(/\b(?:credit card payment|cc payment)\b/i.test(raw))title='Credit card payment';
+ else if(transaction.type==='Transfer'&&transaction.amount>0&&/payment received|thank you for (?:the |your )?payment|netbanking transfer|bbps payment|autopay/i.test(raw))title='Card bill payment';
+ else if(/\bfinance charges?\b|\binterest charges?\b/i.test(raw))title='Finance charges';
+ else if(/\blate (?:payment )?fee\b/i.test(raw))title='Late payment fee';
+ else if(/\bmark-?up fee\b|\bforex (?:fee|markup)\b|\bcross[- ]currency\b/i.test(raw))title='Foreign currency markup';
+ else if(/^(?:[cis]?gst)\b/i.test(raw))title='GST on charges';
+ else if(/\bemi\s*\d{1,3}\s*\/\s*\d{1,3}\b/i.test(raw)){const [match,n,of]=raw.match(/\bemi\s*(\d{1,3})\s*\/\s*(\d{1,3})\b/i),rest=tidy(raw.replace(match,'')).replace(/^[-:·|]\s*/,''),merchant=merchants.find(([,pattern])=>pattern.test(raw))?.[0];title=`EMI ${n} of ${of}`+(merchant||rest?' · '+(merchant||shorten(rest)):'');}
  else if(/\b(?:bank charges|service charges?|(?:sms|atm|neft|imps|annual|maintenance|minimum balance|amb)\s+(?:charges?|chgs?|chrg|fees?))\b/i.test(raw))title='Bank charges';
  else if(/\bcash deposit\b/i.test(raw))title='Cash deposit';
  else if(/\bcash withdrawal\b/i.test(raw)||(channel==='ATM'&&transaction.amount<0&&!/\b(?:fee|fees|charge|charges|deposit)\b/i.test(raw)))title='Cash withdrawal';

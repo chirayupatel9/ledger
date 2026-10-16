@@ -12,7 +12,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 | Balance column discarded | Running balance is the only way to prove nothing was dropped or misread during import. | Done |
 | Separator/footer rows reported as "rows that could not be read" | Bank exports have asterisk rows and summary footers; the warning becomes noise. | Done |
 | Scanned PDFs (OCR) | Some branches issue image-only PDFs. | Later |
-| Credit card statement PDFs (single amount column with Cr suffix) | CC PDFs rarely have separate debit/credit columns. | Later |
+| Credit card statement PDFs (single amount column with Cr suffix) | CC PDFs rarely have separate debit/credit columns. | Done (tested on synthetic HDFC, SBI Card and ICICI layouts; confirm with a real statement) |
 
 ## 2. Bookkeeping integrity
 

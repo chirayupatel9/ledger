@@ -1,8 +1,71 @@
-import {parseDate,parseMoney,classify,findPeriod} from './core.js';
+import {parseDate,parseMoney,classify,findPeriod,cardAmount,cardBalance,looksLikeCardStatement} from './core.js';
 export function extractPageLines(items){const lines=[];for(const item of items){if(!item.str?.trim())continue;const y=item.transform[5];let line=lines.find(l=>Math.abs(l.y-y)<3);if(!line){line={y,items:[]};lines.push(line)}line.items.push({text:item.str.trim(),x:item.transform[4],width:item.width||0})}return lines.sort((a,b)=>b.y-a.y).map(l=>({...l,items:l.items.sort((a,b)=>a.x-b.x)}));}
 // Opening balance is the first one printed; per-page closing balances end with the statement's final closing balance.
 const summaryAmount=(text,label)=>{const all=[...text.matchAll(new RegExp(label+String.raw`\s*(?:balance|bal\.?)?\s*:?\s*(?:₹|rs\.?|inr)?\s*(-?[\d,]+\.\d{2}(?:\s*(?:cr|dr)\.?)?)`,'gi'))],m=label==='closing'?all.at(-1):all[0];return m?parseMoney(m[1]):null;};
-export function parsePDFLines(pages,account,rules=[]){const transactions=[],invalid=[],warnings=[],text=[];let headers=null,datedRows=0;
+const rowDate=/^(\d{1,2}[-/ .](?:\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})(?=\s|$|\|)/;
+const moneyToken=/^(?:[+-]\s*)?(?:₹|rs\.?|inr)?\s*\(?[\d,]+\.\d{2}\)?(?:\s*(?:cr|dr|c|d)\.?)?$/i,signToken=/^(?:cr|dr|c|d)\.?$/i;
+const lineText=line=>line.items.map(x=>x.text).join(' ');
+// The amount is the rightmost money value on the row; a separate Cr/Dr/C/D or leading + belongs to it.
+function rowAmount(items){for(let k=items.length-1;k>=0;k--){const t=items[k].text.trim();
+ if(signToken.test(t)&&k>0&&moneyToken.test(items[k-1].text.trim()))return {index:k-1,raw:items[k-1].text.trim()+' '+t};
+ if(moneyToken.test(t))return {index:k,raw:(items[k-1]?.text.trim()==='+'?'+':'')+t};
+ if(t.length>3)return null;}return null;}
+// Summary figures sit beside their label ("Total Dues : 10,000.00") or in a row of values under a row of labels.
+const cardLabels={openingHint:/^(?:previous|opening|last statement)(?: statement)? ?(?:balance|due|dues|outstanding)\b/i,closingHint:/^(?:total (?:amount |payment )?(?:due|dues|outstanding)|closing balance|current outstanding)\b/i};
+function cardSummary(lines){
+ const found={},center=i=>i.x+(i.width||0)/2;
+ for(let li=0;li<lines.length;li++){const items=lines[li].items;
+  for(let k=0;k<items.length;k++)for(let span=1;span<=3&&k+span<=items.length;span++){
+   const label=items.slice(k,k+span).map(i=>i.text).join(' ').replace(/\s+/g,' ').trim();
+   for(const [key,re] of Object.entries(cardLabels)){if(key in found||!re.test(label))continue;
+    let raw=label.match(/((?:[+-]\s*)?[\d,]+\.\d{2}(?:\s*(?:cr|dr|c|d)\.?)?)\s*$/i)?.[1];
+    if(!raw){const after=items.slice(k+span),i=after.findIndex(x=>moneyToken.test(x.text.trim()));if(i>=0)raw=after[i].text.trim()+(signToken.test(after[i+1]?.text.trim()||'')?' '+after[i+1].text.trim():'');}
+    if(!raw){const at=(center(items[k])+center(items[k+span-1]))/2;let best=null;
+     for(const below of lines.slice(li+1,li+3))for(const [i,v] of below.items.entries()){if(!moneyToken.test(v.text.trim()))continue;const d=Math.abs(center(v)-at);if(d<=90&&(!best||d<best.d))best={d,raw:v.text.trim()+(signToken.test(below.items[i+1]?.text.trim()||'')?' '+below.items[i+1].text.trim():'')}}
+     raw=best?.raw;}
+    if(raw)found[key]=cardBalance(raw);
+   }
+  }
+ }
+ return found;
+}
+const noiseColumn=/reward|points|categor|intl|foreign|forex|ser\.? ?no|serial|^ref|^pi$|time/i;
+// Credit card statements: one amount column, charges unsigned or Dr, credits Cr/C/+/−. Balances are owed (negative).
+export function parseCardLines(pages,account,rules=[]){
+ const transactions=[],invalid=[],all=pages.flat();let columns=null,datedRows=0;
+ for(let pageIndex=0;pageIndex<pages.length;pageIndex++){const lines=pages[pageIndex];
+  for(let li=0;li<lines.length;li++){const items=lines[li].items,joined=lineText(lines[li]);
+   if(/\bdate\b/i.test(joined)&&/amount/i.test(joined)&&/description|details|particulars|transaction|merchant/i.test(joined)){columns=items.map(i=>({x:i.x,noise:noiseColumn.test(i.text.trim())}));continue;}
+   const dateMatch=joined.match(rowDate);if(!dateMatch)continue;const date=parseDate(dateMatch[1]);if(!date)continue;datedRows++;
+   const at=rowAmount(items),amount=at&&cardAmount(at.raw);
+   let rest=dateMatch[1];const words=[];
+   items.slice(0,at?at.index:items.length).forEach(item=>{let t=item.text.trim();
+    if(rest){if(rest.startsWith(t)){rest=rest.slice(t.length).trimStart();return;}if(t.startsWith(rest)){t=t.slice(rest.length).trim();rest='';}else rest='';}
+    const column=columns&&[...columns].reverse().find(c=>item.x>=c.x-12);
+    if(column?.noise||!t||/^\|$|^\|?\s*\d{1,2}:\d{2}(?::\d{2})?\s*\|?$/.test(t))return;words.push(t);});
+   while(words.length&&/^\d{6,}$/.test(words[0]))words.shift();
+   while(words.length&&(/^[+-]?\d{1,6}$/.test(words.at(-1))||moneyToken.test(words.at(-1))||/^[A-Z]{3}$/.test(words.at(-1))))words.pop();
+   let description=words.join(' ').replace(/^\|?\s*\d{1,2}:\d{2}(?::\d{2})?\s*\|?\s*/,'').replace(/\s*\|\s*/g,' ').replace(/\s+/g,' ').trim();
+   const left=items.find(i=>!rowDate.test(i.text))?.x??0,right=at?items[at.index].x:Infinity;
+   for(let end=li+1;end<lines.length&&end<li+3;end++){const next=lines[end],text=lineText(next);if(rowDate.test(text)||rowAmount(next.items)||/total|page |statement|summary|\bdate\b|amount|reward|domestic|international/i.test(text))break;const parts=next.items.filter(i=>i.x>=left-12&&i.x<right-12).map(i=>i.text.trim()).filter(Boolean);if(!parts.length)break;description+=' '+parts.join(' ');}
+   if(/^(?:opening|previous|closing) balance|^total\b/i.test(description))continue;
+   if(!description||!amount){invalid.push(`page ${pageIndex+1}, line ${li+1}`);continue;}
+   transactions.push({id:crypto.randomUUID(),date,description,amount,account,...classify(description,amount,rules,{card:true}),review:true});
+  }
+ }
+ const warnings=['Credit card statement: purchases and charges are money out; payments, refunds and cashback are money in. Bill payments are marked as transfers. All rows are marked for review.'];
+ if(!datedRows)warnings.push('No dated rows found. This may be a scanned PDF or an unsupported layout.');
+ const text=all.map(lineText).join(' ');
+ return {transactions,invalid,warnings,layout:'card',cardLike:true,period:findPeriod(text),...cardSummary(all)};
+}
+export function parsePDFLines(pages,account,rules=[],{card=false}={}){
+ const text=pages.flat().map(lineText).join(' '),cardLike=looksLikeCardStatement(text);
+ // Separate debit and credit columns are parsed as a bank table, even on a card account.
+ const bankTable=pages.flat().some(l=>{const t=lineText(l);return /\bdate\b/i.test(t)&&/debit|withdrawal/i.test(t)&&/credit|deposit/i.test(t)});
+ if((card||cardLike)&&!bankTable)return parseCardLines(pages,account,rules);
+ return {...parseBankLines(pages,account,rules),cardLike};
+}
+function parseBankLines(pages,account,rules){const transactions=[],invalid=[],warnings=[],text=[];let headers=null,datedRows=0;
  for(let pageIndex=0;pageIndex<pages.length;pageIndex++){const lines=pages[pageIndex];
   for(let li=0;li<lines.length;li++){const line=lines[li],joined=line.items.map(x=>x.text).join(' ');text.push(joined);
    if(/debit|withdrawal/i.test(joined)&&/credit|deposit/i.test(joined)){
@@ -29,4 +92,4 @@ export function parsePDFLines(pages,account,rules=[]){const transactions=[],inva
  warnings.push('PDF extraction is provisional. All PDF transactions are marked for review.');
  const all=text.join(' ');
  return {transactions,invalid,warnings,period:findPeriod(all),openingHint:summaryAmount(all,'opening'),closingHint:summaryAmount(all,'closing')};}
-export async function readPDF(buffer,password,account,rules){const pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;const task=pdfjs.getDocument({data:buffer,password:password||undefined,isEvalSupported:false,useSystemFonts:true});let doc;try{doc=await task.promise;if(doc.numPages>150)throw Error('Please split statements longer than 150 pages before importing.');const pages=[];for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p),content=await page.getTextContent();pages.push(extractPageLines(content.items));page.cleanup()}return parsePDFLines(pages,account,rules)}finally{if(doc)await doc.destroy();else await task.destroy();}}
+export async function readPDF(buffer,password,account,rules,options={}){const pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;const task=pdfjs.getDocument({data:buffer,password:password||undefined,isEvalSupported:false,useSystemFonts:true});let doc;try{doc=await task.promise;if(doc.numPages>150)throw Error('Please split statements longer than 150 pages before importing.');const pages=[];for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p),content=await page.getTextContent();pages.push(extractPageLines(content.items));page.cleanup()}return parsePDFLines(pages,account,rules,options)}finally{if(doc)await doc.destroy();else await task.destroy();}}

@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {mkdirSync} from 'node:fs';
 import {setTimeout as sleep} from 'node:timers/promises';
 import * as XLSX from '../apps/web/public/vendor/xlsx.mjs';
+import {makePDF,hdfc as cardStatement} from './fixtures/card-statements.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
 const base=process.env.LEDGER_URL||'https://ledger.chirayupatel.dev';
 const users=[1,2].map(()=>({name:'Bookkeeping QA',email:`bank-qa-${randomUUID()}@example.test`,password:randomBytes(24).toString('base64url')}));
@@ -27,9 +28,9 @@ try{
  assert.equal((await context.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[0].email,password:users[0].password}})).status(),200);
  const state=async(ctx=context)=>(await(await ctx.request.get(base+'/api/ledger')).json());
  const put=async(data,ctx=context)=>ctx.request.put(base+'/api/ledger',{headers:{Origin:base},data});
- let data=await state();data.state={schemaVersion:2,initialized:true,accounts:[{id:'hdfc',name:'HDFC Savings',bank:'HDFC Bank',type:'Savings',last4:'4821',currency:'INR',archived:false}],statements:[],transactions:[],rules:[]};
+ let data=await state();data.state={schemaVersion:2,initialized:true,accounts:[{id:'hdfc',name:'HDFC Savings',bank:'HDFC Bank',type:'Savings',last4:'4821',currency:'INR',archived:false},{id:'card',name:'HDFC Credit Card',bank:'HDFC Bank',type:'Credit card',last4:'9876',currency:'INR',archived:false}],statements:[],transactions:[],rules:[]};
  assert.equal((await put(data)).status(),200);
- const importFile=async(file)=>{await page.locator('[data-action="upload"]').first().click();await page.locator('#account-name').selectOption('hdfc');await page.locator('#file-input').setInputFiles(file);await page.locator('#map-next').waitFor();};
+ const importFile=async(file,account='hdfc',mapped=true)=>{await page.locator('[data-action="upload"]').first().click();await page.locator('#account-name').selectOption(account);await page.locator('#file-input').setInputFiles(file);await page.locator(mapped?'#map-next':'#commit-import').waitFor();};
 
  // 1. Excel import: period from the preamble, balance column mapped, reconciliation passes, values persist.
  await page.goto(base+'/statements');await page.locator('h1').waitFor();
@@ -59,7 +60,7 @@ try{
  assert.match(await books.innerText(),/No statement for 01 Nov 2026 – 30 Nov 2026/);assert.match(await books.innerText(),/does not carry over/);
  assert.match(await books.innerText(),/Bank balance ₹36,500\.00 on 31 Dec 2026/);
  await page.locator('nav [data-page="overview"]').click();await page.locator('.books-strip').waitFor();
- await page.locator('nav [data-page="accounts"]').click();assert.match(await page.locator('.bank-card').innerText(),/Bank balance\s+₹36,500\.00/);
+ await page.locator('nav [data-page="accounts"]').click();assert.match(await page.locator('.bank-card').filter({hasText:'HDFC Savings'}).innerText(),/Bank balance\s+₹36,500\.00/);
 
  // 4. Statement details can be corrected later.
  await page.locator('nav [data-page="statements"]').click();const decId=(await state()).state.statements.find(s=>s.name==='hdfc-dec.csv').id;
@@ -92,6 +93,18 @@ try{
  await page.setViewportSize({width:390,height:844});for(const p of ['statements','transactions','reports']){await page.locator(`nav [data-page="${p}"]`).click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,p+' fits mobile');}
  await page.screenshot({path:'playwright-results/reports-mobile.png',fullPage:true});
 
+ // 8a. Credit card PDF: unsigned charges, Cr credits, amount due reconciles, balances shown as amounts due.
+ await page.setViewportSize({width:1440,height:1000});const cardPDF={name:'hdfc-card-sep.pdf',mimeType:'application/pdf',buffer:makePDF(cardStatement)};
+ await importFile(cardPDF,'hdfc',false);assert.match(await page.locator('#modal').innerText(),/looks like a credit card statement/);await page.getByRole('button',{name:'Cancel'}).click();
+ await importFile(cardPDF,'card',false);assert.equal(await page.locator('#st-opening').inputValue(),'5000.00');assert.equal(await page.locator('#st-closing').inputValue(),'9974.90');
+ await page.locator('#reconcile-result').getByText('This matches the total due').waitFor();await page.locator('#modal').screenshot({path:'playwright-results/card-import.png'});await page.locator('#commit-import').click();await page.locator('#modal').waitFor({state:'hidden'});
+ data=await state();const card=data.state.statements.find(s=>s.accountId==='card'),cardRows=data.state.transactions.filter(t=>t.accountId==='card');
+ assert.deepEqual([card.from,card.to,card.opening,card.closing],['2026-08-24','2026-09-23',-500000,-997490]);assert.equal(cardRows.length,7);
+ assert.equal(cardRows.find(t=>t.description.startsWith('NETBANKING')).type,'Transfer');assert.equal(cardRows.find(t=>t.description.startsWith('SWIGGY')).amount,-45000);
+ await page.locator('nav [data-page="statements"]').click();assert.match(await page.locator('[data-books="card"]').innerText(),/Outstanding\s+₹9,974\.90/);assert.match(await page.locator('.statement').filter({hasText:'hdfc-card-sep.pdf'}).innerText(),/Total due ₹9,974\.90/);
+ await page.locator('nav [data-page="accounts"]').click();assert.match(await page.locator('.bank-card').filter({hasText:'HDFC Credit Card'}).innerText(),/Outstanding\s+₹9,974\.90/);
+ await page.locator('nav [data-page="transactions"]').click();await page.locator('#search').fill('RELIANCE');assert.match(await page.locator('#transaction-results tbody tr').first().innerText(),/EMI 3 of 12/);await page.locator('#search').fill('');
+
  // 8. Paging: a large ledger renders 200 rows at a time.
  const other=await browser.newContext();assert.equal((await other.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[1].email,password:users[1].password}})).status(),200);
  data=await state(other);data.state={schemaVersion:2,initialized:true,accounts:[{id:'a',name:'Bulk',bank:'',type:'Savings',last4:'',currency:'INR',archived:false}],statements:[{id:'s',accountId:'a',account:'Bulk',name:'bulk.csv',count:450,created:'2026-10-16T00:00:00Z'}],rules:[],transactions:Array.from({length:450},(_,i)=>({id:'t'+i,statementId:'s',accountId:'a',account:'Bulk',date:'2026-09-'+String(1+i%28).padStart(2,'0'),description:'UPI/DR/'+(100000+i)+'/SHOP',amount:-(100+i),category:'Shopping',type:'Expense',review:true}))};
@@ -114,5 +127,5 @@ try{
  assert.equal((await fresh.request.get(base+'/api/ledger')).status(),200);await fresh.close();
 
  assert.deepEqual(problems,[]);
- console.log('PASS: Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}
