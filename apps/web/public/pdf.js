@@ -3,7 +3,10 @@ export function extractPageLines(items){const lines=[];for(const item of items){
 // Opening balance is the first one printed; per-page closing balances end with the statement's final closing balance.
 const summaryAmount=(text,label)=>{const all=[...text.matchAll(new RegExp(label+String.raw`\s*(?:balance|bal\.?)?\s*:?\s*(?:₹|rs\.?|inr)?\s*(-?[\d,]+\.\d{2}(?:\s*(?:cr|dr)\.?)?)`,'gi'))],m=label==='closing'?all.at(-1):all[0];return m?parseMoney(m[1]):null;};
 const rowDate=/^(\d{1,2}[-/ .](?:\d{1,2}|[A-Za-z]{3,9})[-/ ,.]\s*\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})(?=\s|$|\|)/;
-const moneyToken=/^(?:[+-]\s*)?(?:₹|rs\.?|inr)?\s*\(?[\d,]+\.\d{2}\)?(?:\s*(?:cr|dr|c|d)\.?)?$/i,signToken=/^(?:cr|dr|c|d)\.?$/i;
+// Some card PDFs draw ₹ with a font that extracts as a backtick.
+const moneyToken=/^(?:[+-]\s*)?(?:₹|`|rs\.?|inr)?\s*\(?[\d,]+\.\d{2}\)?(?:\s*(?:cr|dr|c|d)\.?)?$/i,signToken=/^(?:cr|dr|c|d)\.?$/i;
+// Inside a known Amount column, whole-rupee values ("7903 Dr.") are amounts too.
+const columnValue=/^(?:[+-]\s*)?(?:₹|`|rs\.?|inr)?\s*\(?\d[\d,]*(?:\.\d{1,2})?\)?(?:\s*(?:cr|dr|c|d)\.?)?$/i;
 const lineText=line=>line.items.map(x=>x.text).join(' ');
 // The amount is the rightmost money value on the row; a separate Cr/Dr/C/D or leading + belongs to it.
 function rowAmount(items){for(let k=items.length-1;k>=0;k--){const t=items[k].text.trim();
@@ -21,36 +24,47 @@ function cardSummary(lines){
     let raw=label.match(/((?:[+-]\s*)?[\d,]+\.\d{2}(?:\s*(?:cr|dr|c|d)\.?)?)\s*$/i)?.[1];
     if(!raw){const after=items.slice(k+span),i=after.findIndex(x=>moneyToken.test(x.text.trim()));if(i>=0)raw=after[i].text.trim()+(signToken.test(after[i+1]?.text.trim()||'')?' '+after[i+1].text.trim():'');}
     if(!raw){const at=(center(items[k])+center(items[k+span-1]))/2;let best=null;
-     for(const below of lines.slice(li+1,li+3))for(const [i,v] of below.items.entries()){if(!moneyToken.test(v.text.trim()))continue;const d=Math.abs(center(v)-at);if(d<=90&&(!best||d<best.d))best={d,raw:v.text.trim()+(signToken.test(below.items[i+1]?.text.trim()||'')?' '+below.items[i+1].text.trim():'')}}
+     for(const below of lines.slice(li+1,li+5))for(const [i,v] of below.items.entries()){if(!moneyToken.test(v.text.trim()))continue;const d=Math.abs(center(v)-at);if(d<=90&&(!best||d<best.d))best={d,raw:v.text.trim()+(signToken.test(below.items[i+1]?.text.trim()||'')?' '+below.items[i+1].text.trim():'')}}
      raw=best?.raw;}
-    if(raw)found[key]=cardBalance(raw);
+    if(raw)found[key]=cardBalance(raw.replace(/^`\s*/,''));
    }
   }
  }
  return found;
 }
 const noiseColumn=/reward|points|categor|intl|foreign|forex|ser\.? ?no|serial|^ref|^pi$|time/i;
+// Header words close together form one column label ("Amount (INR)", "Reward Points").
+function headerColumns(items){const cols=[];for(const i of items){const text=i.text.trim(),end=i.x+(i.width||text.length*4),last=cols.at(-1);if(last&&i.x-last.end<14){last.label+=' '+text;last.end=end;}else cols.push({x:i.x,end,label:text});}
+ return cols.map(c=>({x:c.x,label:c.label,ref:/\bref(?:erence)?\b|ser\.? ?no|serial/i.test(c.label),amount:/amount/i.test(c.label)&&!/intl|foreign/i.test(c.label),date:/date/i.test(c.label),noise:noiseColumn.test(c.label)&&!(/amount/i.test(c.label)&&!/intl|foreign/i.test(c.label))}));}
+// The value under the Amount header, with a Cr/Dr token beside it; the last number in the column wins.
+function columnAmount(items,columns){const i=columns.findIndex(c=>c.amount);if(i<0)return undefined;const lo=columns[i].x-45,hi=columns[i+1]?columns[i+1].x-5:Infinity;let found=null;
+ items.forEach((it,k)=>{const t=it.text.trim();if(it.x>=lo&&it.x<hi&&columnValue.test(t)&&!/^\d{6,}$/.test(t))found={index:k,raw:t.replace(/^`\s*/,'')+(signToken.test(items[k+1]?.text.trim()||'')&&items[k+1].x<hi?' '+items[k+1].text.trim():'')};});return found;}
 // Credit card statements: one amount column, charges unsigned or Dr, credits Cr/C/+/−. Balances are owed (negative).
 export function parseCardLines(pages,account,rules=[]){
  const transactions=[],invalid=[],all=pages.flat();let columns=null,datedRows=0;
  for(let pageIndex=0;pageIndex<pages.length;pageIndex++){const lines=pages[pageIndex];
   for(let li=0;li<lines.length;li++){const items=lines[li].items,joined=lineText(lines[li]);
-   if(/\bdate\b/i.test(joined)&&/amount/i.test(joined)&&/description|details|particulars|transaction|merchant/i.test(joined)){columns=items.map(i=>({x:i.x,noise:noiseColumn.test(i.text.trim())}));continue;}
-   const dateMatch=joined.match(rowDate);if(!dateMatch)continue;const date=parseDate(dateMatch[1]);if(!date)continue;datedRows++;
-   const at=rowAmount(items),amount=at&&cardAmount(at.raw);
-   let rest=dateMatch[1];const words=[];
-   items.slice(0,at?at.index:items.length).forEach(item=>{let t=item.text.trim();
+   if(/\bdate\b/i.test(joined)&&/amount/i.test(joined)&&/description|details|particulars|transaction|merchant/i.test(joined)){columns=headerColumns(items);continue;}
+   const dateColumn=columns?.find(c=>c.date),start=items.findIndex((it,k)=>rowDate.test(items.slice(k).map(x=>x.text).join(' '))&&(dateColumn?Math.abs(it.x-dateColumn.x)<=40:k===0));if(start<0)continue;
+   const row=items.slice(start),dateMatch=row.map(x=>x.text).join(' ').match(rowDate),date=parseDate(dateMatch[1]);if(!date)continue;datedRows++;
+   const inColumn=columns&&columnAmount(row,columns),at=inColumn===undefined?rowAmount(row):inColumn,amount=at&&cardAmount(at.raw);
+   let rest=dateMatch[1];const words=[];let ref,descLeft;
+   if(columns)row.forEach(item=>{const t=item.text.trim(),c=[...columns].reverse().find(c=>item.x>=c.x-12);if(c?.ref&&/^[A-Za-z0-9-]{6,40}$/.test(t)&&/\d{6}/.test(t))ref??=t;});
+   row.slice(0,at?at.index:row.length).forEach(item=>{let t=item.text.trim();
     if(rest){if(rest.startsWith(t)){rest=rest.slice(t.length).trimStart();return;}if(t.startsWith(rest)){t=t.slice(rest.length).trim();rest='';}else rest='';}
     const column=columns&&[...columns].reverse().find(c=>item.x>=c.x-12);
-    if(column?.noise||!t||/^\|$|^\|?\s*\d{1,2}:\d{2}(?::\d{2})?\s*\|?$/.test(t))return;words.push(t);});
+    if(column?.noise||!t||/^\|$|^\|?\s*\d{1,2}:\d{2}(?::\d{2})?\s*\|?$/.test(t))return;
+    // pdf.js can merge the serial/reference number into the narration's text run.
+    const lead=t.match(/^(\d{6,})\s+(.+)$/);if(lead){if(columns?.some(c=>c.ref))ref??=lead[1];t=lead[2];}
+    words.push(t);descLeft??=item.x;});
    while(words.length&&/^\d{6,}$/.test(words[0]))words.shift();
    while(words.length&&(/^[+-]?\d{1,6}$/.test(words.at(-1))||moneyToken.test(words.at(-1))||/^[A-Z]{3}$/.test(words.at(-1))))words.pop();
    let description=words.join(' ').replace(/^\|?\s*\d{1,2}:\d{2}(?::\d{2})?\s*\|?\s*/,'').replace(/\s*\|\s*/g,' ').replace(/\s+/g,' ').trim();
-   const left=items.find(i=>!rowDate.test(i.text))?.x??0,right=at?items[at.index].x:Infinity;
-   for(let end=li+1;end<lines.length&&end<li+3;end++){const next=lines[end],text=lineText(next);if(rowDate.test(text)||rowAmount(next.items)||/total|page |statement|summary|\bdate\b|amount|reward|domestic|international/i.test(text))break;const parts=next.items.filter(i=>i.x>=left-12&&i.x<right-12).map(i=>i.text.trim()).filter(Boolean);if(!parts.length)break;description+=' '+parts.join(' ');}
+   const left=descLeft??row.find(i=>!rowDate.test(i.text))?.x??0,right=at?row[at.index].x:Infinity;
+   for(let end=li+1;end<lines.length&&end<li+3;end++){const next=lines[end],text=lineText(next);if(next.items.some(i=>rowDate.test(i.text.trim()))||rowAmount(next.items)||/total|page |statement|summary|\bdate\b|amount|reward|domestic|international/i.test(text))break;const parts=next.items.filter(i=>i.x>=left-12&&i.x<right-12).map(i=>i.text.trim()).filter(Boolean);if(!parts.length)break;description+=' '+parts.join(' ');}
    if(/^(?:opening|previous|closing) balance|^total\b/i.test(description))continue;
    if(!description||!amount){invalid.push(`page ${pageIndex+1}, line ${li+1}`);continue;}
-   transactions.push({id:crypto.randomUUID(),date,description,amount,account,...classify(description,amount,rules,{card:true}),review:true});
+   transactions.push({id:crypto.randomUUID(),date,description,amount,account,...(ref?{ref}:{}),...classify(description,amount,rules,{card:true}),review:true});
   }
  }
  const warnings=['Credit card statement: purchases and charges are money out; payments, refunds and cashback are money in. Bill payments are marked as transfers. All rows are marked for review.'];

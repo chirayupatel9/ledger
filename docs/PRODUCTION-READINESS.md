@@ -12,7 +12,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 | Balance column discarded | Running balance is the only way to prove nothing was dropped or misread during import. | Done |
 | Separator/footer rows reported as "rows that could not be read" | Bank exports have asterisk rows and summary footers; the warning becomes noise. | Done |
 | Scanned PDFs (OCR) | Some branches issue image-only PDFs. | Later |
-| Credit card statement PDFs (single amount column with Cr suffix) | CC PDFs rarely have separate debit/credit columns. | Done (tested on synthetic HDFC, SBI Card and ICICI layouts; confirm with a real statement) |
+| Credit card statement PDFs (single amount column with Cr suffix) | CC PDFs rarely have separate debit/credit columns. | Done (verified on a real ICICI Amazon Pay statement in both its app and e-statement formats, plus synthetic HDFC, SBI Card and ICICI layouts) |
 
 ## 2. Bookkeeping integrity
 
@@ -21,7 +21,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 | No reconciliation | Opening balance + transactions should equal the bank's closing balance; without this the books can silently be wrong. | Done |
 | No statement coverage / missing-period detection | A missing month makes every report wrong; users cannot see it. | Done |
 | Account cards show "net movement", not balance | Users expect the balance as of their latest statement. | Done |
-| Transfers between own accounts are not paired | Both legs are tagged Transfer but not linked. | Later |
+| Transfers between own accounts are not paired | Both legs are tagged Transfer but not linked. | Done (Find transfer pairs, manual linking in Edit, unlinked-transfer filter) |
 | Single-entry cash-flow model, no double-entry / Tally export | Needed for business books and CA hand-off in Tally. | Needs decision (personal vs business product) |
 
 ## 3. Indian tax and categorisation

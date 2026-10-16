@@ -32,6 +32,7 @@ export function transactionLabel(transaction){
  if(/\b(?:self[\s/-]*transfer|own[\s/-]*account)\b/i.test(raw))title='Self transfer';
  else if(/\b(?:credit card payment|cc payment)\b/i.test(raw))title='Credit card payment';
  else if(transaction.type==='Transfer'&&transaction.amount>0&&/payment received|thank you for (?:the |your )?payment|netbanking transfer|bbps payment|autopay/i.test(raw))title='Card bill payment';
+ else if(/wallet load|wallet top-?up|load(?:ed)? (?:to |money )?wallet/i.test(raw)){const merchant=merchants.find(([,pattern])=>pattern.test(raw))?.[0];title=merchant?merchant+' wallet top-up':'Wallet top-up';}
  else if(/\bfinance charges?\b|\binterest charges?\b/i.test(raw))title='Finance charges';
  else if(/\blate (?:payment )?fee\b/i.test(raw))title='Late payment fee';
  else if(/\bmark-?up fee\b|\bforex (?:fee|markup)\b|\bcross[- ]currency\b/i.test(raw))title='Foreign currency markup';

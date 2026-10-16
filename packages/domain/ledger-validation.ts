@@ -1,6 +1,7 @@
 import {upgradeAccounts,accountKey,accountTypes} from './accounts.js';
 import {categories,parseDate} from './core.js';
 import {taxTagIds} from './tax.js';
+import {normalizeTransfers} from './transfers.js';
 export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
@@ -29,10 +30,12 @@ export function validateLedger(input:any):LedgerState{
  const statementMap=new Map<string,any>(statements.map((s:any)=>[s.id,s]));
  const tids=new Set<string>();const counts:Record<string,number>={};
  const transactions=input.transactions.map((t:any)=>{
-  if(!t||!id(t.id)||tids.has(t.id)||!string(t.date,10)||parseDate(t.date)!==t.date||!string(t.description,4000)||!t.description.trim()||!string(t.account,160)||!t.account.trim()||!aids.has(t.accountId)||statementMap.get(t.statementId)?.accountId!==t.accountId||!Number.isSafeInteger(t.amount)||t.amount===0||Math.abs(t.amount)>1e14||!categories.includes(t.category)||!['Income','Expense','Transfer','Refund'].includes(t.type)||!sids.has(t.statementId)||(t.note!==undefined&&!string(t.note,4000))||(t.displayName!==undefined&&!string(t.displayName,160))||!paise(t.balance)||(t.taxTag!==undefined&&t.taxTag!==''&&!taxTagIds.includes(t.taxTag)))fail('Invalid transaction. Check dates, amounts, categories, and statement references.');
+  if(!t||!id(t.id)||tids.has(t.id)||!string(t.date,10)||parseDate(t.date)!==t.date||!string(t.description,4000)||!t.description.trim()||!string(t.account,160)||!t.account.trim()||!aids.has(t.accountId)||statementMap.get(t.statementId)?.accountId!==t.accountId||!Number.isSafeInteger(t.amount)||t.amount===0||Math.abs(t.amount)>1e14||!categories.includes(t.category)||!['Income','Expense','Transfer','Refund'].includes(t.type)||!sids.has(t.statementId)||(t.note!==undefined&&!string(t.note,4000))||(t.displayName!==undefined&&!string(t.displayName,160))||!paise(t.balance)||(t.taxTag!==undefined&&t.taxTag!==''&&!taxTagIds.includes(t.taxTag))||(t.transferId!==undefined&&!id(t.transferId))||(t.ref!==undefined&&!(typeof t.ref==='string'&&/^[A-Za-z0-9-]{1,40}$/.test(t.ref))))fail('Invalid transaction. Check dates, amounts, categories, and statement references.');
   if((t.type==='Expense'&&t.amount>0)||(['Income','Refund'].includes(t.type)&&t.amount<0))fail('Transaction type does not match its amount direction.');
-  tids.add(t.id);counts[t.statementId]=(counts[t.statementId]||0)+1;return {id:t.id,date:t.date,description:t.description,amount:t.amount,account:accountMap.get(t.accountId).name,accountId:t.accountId,category:t.category,type:t.type,review:!!t.review,statementId:t.statementId,...(t.note?{note:t.note}:{}),...(t.displayName?.trim()?{displayName:t.displayName.trim()}:{}),...(t.balance!==undefined?{balance:t.balance}:{}),...(t.taxTag?{taxTag:t.taxTag}:{})};
+  tids.add(t.id);counts[t.statementId]=(counts[t.statementId]||0)+1;return {id:t.id,date:t.date,description:t.description,amount:t.amount,account:accountMap.get(t.accountId).name,accountId:t.accountId,category:t.category,type:t.type,review:!!t.review,statementId:t.statementId,...(t.note?{note:t.note}:{}),...(t.displayName?.trim()?{displayName:t.displayName.trim()}:{}),...(t.balance!==undefined?{balance:t.balance}:{}),...(t.taxTag?{taxTag:t.taxTag}:{}),...(t.transferId?{transferId:t.transferId}:{}),...(t.ref?{ref:t.ref}:{})};
  });
+ // A link survives only as two Transfer legs of equal and opposite amounts in different accounts.
+ normalizeTransfers(transactions);
  for(const s of statements)s.count=counts[s.id]||0;
  const rules=input.rules.map((r:any)=>{if(!r||!string(r.keyword,200)||!r.keyword.trim()||!categories.includes(r.category))fail('Invalid category rule.');return {keyword:r.keyword.trim(),category:r.category}});
  return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized};

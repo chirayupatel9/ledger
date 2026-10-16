@@ -4,6 +4,8 @@ export const categories=Object.keys(palette);
 export const colors=categories.map(c=>palette[c]);
 // [category, pattern, direction]. First match wins, so specific Indian narrations come before generic merchants.
 const rules=[
+ // Topping up a wallet (Amazon Pay, Paytm) moves money to another account you hold.
+ ['Transfers',/wallet load|wallet top-?up|load(?:ed)? (?:to |money )?wallet|add(?:ed)? money to wallet/i,'out'],
  ['Taxes',/advance tax|self[- ]?assessment|income ?tax|\bitns ?2\d\d\b|\boltas\b|\bcbdt\b|tin[- ]?nsdl|e-?pay ?tax|\bcbic\b|gst (?:payment|challan)|property tax|professional tax|\btds\b/i,'out'],
  ['Fees & charges',/bank charges|service charges?|sms (?:alert )?(?:charges?|chgs?)|annual (?:fee|charges?)|\bamc\b|min(?:imum)?\.? ?bal|non[- ]?maint|penal|late (?:payment )?fee|cash handling|(?:atm|imps|neft|rtgs|dc|debit card|card) (?:fees?|chgs?|charges?)|\bchgs?\b|\bchrgs?\b|gst on (?:charges|fees?)|finance charges?|interest (?:charges?|on)|annual fee|renewal fee|joining fee|over ?limit|surcharge|cash advance fee|mark-?up|forex|cross[- ]currency|dcc fee|\b[cis]?gst\b/i,'out'],
  ['Cash withdrawal',/\batm\b|cash withdrawal|cash wdl|\bnwd\b|\batw\b|\bcwdr?\b|self withdrawal/i,'out'],
@@ -44,10 +46,10 @@ export function parseMoney(raw){
 }
 const monthNames=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 // Card statements print charges unsigned (or with Dr/D) and credits with Cr/C, a leading + or −, or brackets.
-const signSuffix=/\s*(?:cr|dr|c|d)\.?$/i,creditMark=s=>/(?:cr|c)\.?$/i.test(s)||/^[+(]|^-/.test(s);
-export function cardAmount(raw){const s=String(raw??'').trim(),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,'').replace(/^\((.*)\)$/,'$1'));return v===null||!v?null:creditMark(s)?Math.abs(v):-Math.abs(v);}
+const signSuffix=/\s*(?:cr|dr|c|d)\.?$/i,currency=s=>s.replace(/^`\s*/,''),creditMark=s=>/(?:cr|c)\.?$/i.test(s)||/^[+(]|^-/.test(s);
+export function cardAmount(raw){const s=currency(String(raw??'').trim()),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,'').replace(/^\((.*)\)$/,'$1'));return v===null||!v?null:creditMark(s)?Math.abs(v):-Math.abs(v);}
 // Total due is owed (negative in Ledger) unless printed as a credit balance.
-export function cardBalance(raw){const s=String(raw??'').trim(),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,''));return v===null?null:!v?0:creditMark(s)?Math.abs(v):-Math.abs(v);}
+export function cardBalance(raw){const s=currency(String(raw??'').trim()),v=parseMoney(s.replace(signSuffix,'').replace(/^[+-]\s*/,''));return v===null?null:!v?0:creditMark(s)?Math.abs(v):-Math.abs(v);}
 export const looksLikeCardStatement=text=>/minimum (?:amount )?(?:due|payable)|payment due date/i.test(text);
 export function parseDate(raw){
  const s=String(raw??'').trim();let y,m,d;let a=s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);

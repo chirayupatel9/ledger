@@ -26,3 +26,6 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 @media(max-width:650px){.bulk-bar{margin:0 14px 12px}.bulk-bar select{max-width:100%;flex:1 1 140px}.coverage-bar{margin:0 14px 14px}.books-issues,.books-ok,.books-note{padding-left:14px;padding-right:14px}.select-cell{width:28px}}
 @media print{.bulk-bar,.select-cell,.show-more{display:none}}
 .transaction-table.selectable th:nth-child(1){width:42px}.transaction-table.selectable th:nth-child(2){width:31%}.transaction-table.selectable th:nth-child(3){width:13%}.transaction-table.selectable th:nth-child(4){width:17%}.transaction-table.selectable th:nth-child(5){width:13%}.transaction-table.selectable th:nth-child(6){width:13%}.transaction-table.selectable th:last-child{width:8%}.transaction-table .select-cell{padding-left:14px;padding-right:4px}
+.transfer-link{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:10px;color:#2c6554;font-weight:600}
+.pair-list{display:grid;gap:8px;max-height:360px;overflow:auto;margin:12px 0}.pair-row{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12px;cursor:pointer}.pair-row input{margin-top:3px}.pair-row small{display:block;color:var(--muted);margin-top:4px;font-size:11px}
+.card .table-toolbar .bank-actions .btn{margin:0}

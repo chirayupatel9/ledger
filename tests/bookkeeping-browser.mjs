@@ -105,6 +105,21 @@ try{
  await page.locator('nav [data-page="accounts"]').click();assert.match(await page.locator('.bank-card').filter({hasText:'HDFC Credit Card'}).innerText(),/Outstanding\s+₹9,974\.90/);
  await page.locator('nav [data-page="transactions"]').click();await page.locator('#search').fill('RELIANCE');assert.match(await page.locator('#transaction-results tbody tr').first().innerText(),/EMI 3 of 12/);await page.locator('#search').fill('');
 
+ // 8b. Transfers: the bank debit for the card bill pairs with the card's payment, can be unlinked and relinked by hand.
+ await importFile({name:'hdfc-aug.csv',mimeType:'text/csv',buffer:Buffer.from('Date,Narration,Debit,Credit\n28/08/2026,CC 000XXXX9876 AUTOPAY HDFC CREDIT CARD,"5,000.00",\n')});await page.locator('#map-next').click();await page.locator('#commit-import').click();await page.locator('#modal').waitFor({state:'hidden'});
+ await page.locator('nav [data-page="transactions"]').click();await page.locator('[data-action="pair-transfers"]').first().click();
+ const pair=page.locator('.pair-row');assert.equal(await pair.count(),1);assert.match(await pair.innerText(),/HDFC Savings → HDFC Credit Card[\s\S]*Same day/);
+ await page.locator('#pair-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});
+ let tx=(await state()).state.transactions;const bankLeg=tx.find(t=>t.description.startsWith('CC 000XXXX9876')),cardLeg=tx.find(t=>t.description.startsWith('NETBANKING TRANSFER'));
+ assert.ok(bankLeg.transferId&&bankLeg.transferId===cardLeg.transferId);assert.deepEqual([bankLeg.type,cardLeg.type,bankLeg.review,cardLeg.review],['Transfer','Transfer',false,false]);
+ assert.match(await page.locator(`[data-transaction="${bankLeg.id}"]`).innerText(),/Transfer to HDFC Credit Card/);assert.match(await page.locator(`[data-transaction="${cardLeg.id}"]`).innerText(),/Transfer from HDFC Savings/);
+ await page.locator(`[data-edit="${bankLeg.id}"]`).click();await page.getByLabel('Linked transfer').selectOption('');await page.getByRole('button',{name:'Save changes'}).click();await page.locator('#inline-transaction-form').waitFor({state:'detached'});
+ tx=(await state()).state.transactions;assert.ok(!tx.find(t=>t.id===bankLeg.id).transferId&&!tx.find(t=>t.id===cardLeg.id).transferId,'unlinking clears both sides');
+ await page.locator('#type-filter').selectOption('unlinked');assert.equal(await page.locator(`[data-transaction="${cardLeg.id}"]`).count(),1);
+ await page.locator(`[data-edit="${cardLeg.id}"]`).click();await page.getByLabel('Linked transfer').selectOption(bankLeg.id);await page.getByRole('button',{name:'Save changes'}).click();await page.locator('#inline-transaction-form').waitFor({state:'detached'});
+ tx=(await state()).state.transactions;assert.ok(tx.find(t=>t.id===bankLeg.id).transferId===tx.find(t=>t.id===cardLeg.id).transferId);
+ await page.locator('#type-filter').selectOption('all');
+
  // 8. Paging: a large ledger renders 200 rows at a time.
  const other=await browser.newContext();assert.equal((await other.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[1].email,password:users[1].password}})).status(),200);
  data=await state(other);data.state={schemaVersion:2,initialized:true,accounts:[{id:'a',name:'Bulk',bank:'',type:'Savings',last4:'',currency:'INR',archived:false}],statements:[{id:'s',accountId:'a',account:'Bulk',name:'bulk.csv',count:450,created:'2026-10-16T00:00:00Z'}],rules:[],transactions:Array.from({length:450},(_,i)=>({id:'t'+i,statementId:'s',accountId:'a',account:'Bulk',date:'2026-09-'+String(1+i%28).padStart(2,'0'),description:'UPI/DR/'+(100000+i)+'/SHOP',amount:-(100+i),category:'Shopping',type:'Expense',review:true}))};
@@ -127,5 +142,5 @@ try{
  assert.equal((await fresh.request.get(base+'/api/ledger')).status(),200);await fresh.close();
 
  assert.deepEqual(problems,[]);
- console.log('PASS: credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}

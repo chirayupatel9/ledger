@@ -4,14 +4,14 @@ import {cardAmount,cardBalance,looksLikeCardStatement,classify,parseCSV,guessMap
 import {transactionLabel} from '../packages/domain/transaction-labels.js';
 import {taxTagFor} from '../packages/domain/tax.js';
 import {extractPageLines,parsePDFLines} from '../apps/web/public/pdf.js';
-import {makePDF,hdfc,sbi,icici,expected} from './fixtures/card-statements.mjs';
+import {makePDF,hdfc,sbi,icici,iciciApp,iciciEstatement,expected} from './fixtures/card-statements.mjs';
 
 const warn=console.warn;console.warn=m=>{if(!String(m).includes('legacy'))warn(m)};
 const pdfjs=await import('../apps/web/public/vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('../apps/web/public/vendor/pdf.worker.mjs',import.meta.url).href;
 // Real pdf.js text extraction, the same path the browser uses.
 async function pdfLines(pages){const doc=await pdfjs.getDocument({data:new Uint8Array(makePDF(pages)),isEvalSupported:false,useSystemFonts:true}).promise,out=[];for(let p=1;p<=doc.numPages;p++)out.push(extractPageLines((await (await doc.getPage(p)).getTextContent()).items));await doc.destroy();return out;}
 
-for(const [name,pages] of Object.entries({hdfc,sbi,icici}))test(`${name}-style card statement imports with signs, categories, period and amount due`,async()=>{
+for(const [name,pages] of Object.entries({hdfc,sbi,icici,iciciApp,iciciEstatement}))test(`${name}-style card statement imports with signs, categories, period and amount due`,async()=>{
  const r=parsePDFLines(await pdfLines(pages),'Card',[],{card:true}),e=expected[name];
  assert.equal(r.layout,'card');assert.deepEqual(r.invalid,[]);assert.deepEqual(r.period,e.period);
  assert.equal(r.openingHint,e.openingHint);assert.equal(r.closingHint,e.closingHint);
@@ -50,4 +50,10 @@ test('card rows get readable labels and GST on charges is tagged',()=>{
  assert.equal(transactionLabel({description:'PAYMENT RECEIVED FROM CLIENT',amount:100000,type:'Income'}).title,'PAYMENT RECEIVED FROM CLIENT');
  assert.equal(transactionLabel({description:'FINANCE CHARGES',amount:-50000}).title,'Finance charges');
  assert.equal(taxTagFor({description:'IGST',amount:-2590,category:'Fees & charges',type:'Expense'}).id,'gst-paid');
+});
+test('the same card statement in two formats shares bank references, so a second import is a duplicate',async()=>{
+ const app=parsePDFLines(await pdfLines(iciciApp),'Card',[],{card:true}).transactions,web=parsePDFLines(await pdfLines(iciciEstatement),'Card',[],{card:true}).transactions;
+ const key=t=>[t.ref,t.amount].join('|');assert.ok(app.every(t=>/^9000000000\d$/.test(t.ref)));assert.deepEqual(new Set(web.map(key)),new Set(app.map(key)));
+ assert.notDeepEqual(app.map(t=>t.description).sort(),web.map(t=>t.description).sort(),'descriptions differ between formats');
+ assert.equal(transactionLabel(app.find(t=>t.ref==='90000000001')).title,'Amazon wallet top-up');
 });

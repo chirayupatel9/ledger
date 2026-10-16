@@ -48,6 +48,35 @@ export const icici=[[
  [40,682,'21/08/2026'],[100,682,'11223344557'],[170,682,'OPENAI CHATGPT SUBSCR'],[360,682,'22'],[420,682,'USD 23.60'],[500,682,'2,100.00'],
  [40,668,'01/09/2026'],[100,668,'11223344558'],[170,668,'BBPS Payment received'],[360,668,'0'],[500,668,'-1,000.00'],
 ]];
+// ICICI Amazon Pay layouts (synthetic data). App "last statement": inline summary, amount before reward and
+// reference columns, whole-rupee amounts, "Dr."/"Cr." beside the amount, wrapped descriptions.
+export const iciciApp=[[
+ [292,800,'VIEW LAST STATEMENT',10],[40,770,'Card Holder Name'],[228,770,'TEST USER'],[416,770,'Card Type'],[604,770,'primary'],
+ [40,740,'Previous Balance'],[228,740,'INR'],[246,740,'10000.00'],[416,740,'Statement Date'],[520,740,'13-10-2026'],
+ [40,720,'Purchases and Other Charges'],[228,720,'INR'],[246,720,'4500.50'],[416,720,'Payment Due Date'],[520,720,'30-10-2026'],
+ [40,700,'Payments and Other Credits'],[228,700,'INR'],[246,700,'10000.00'],[416,700,'Total Credit Limit'],[520,700,'INR 50000'],
+ [40,680,'Total Amount Due'],[228,680,'INR'],[246,680,'4500.50'],[40,660,'Minimum Amount Due'],[228,660,'INR'],[246,660,'230'],
+ [40,640,'Cash Advances'],[228,640,'INR'],[246,640,'0'],[416,640,'Statement Period'],[490,640,'14-09-2026'],[535,640,'TO'],[548,640,'13-10-2026'],
+ [40,600,'Transaction Details'],[45,580,'Transaction Date'],[204,580,'Details'],[363,580,'Amount (INR)'],[440,580,'Reward Points'],[500,580,'Reference Number'],
+ [45,560,'05-10-2026'],[204,560,'AMAZON PAY IN E'],[363,560,'3000'],[393,560,'Dr.'],[440,560,'150'],[500,560,'90000000003'],[204,548,'COMMERC - BANGALORE'],
+ [45,530,'28-09-2026'],[204,530,'BANK PAYMENT'],[363,530,'10000.00'],[405,530,'Cr.'],[440,530,'0'],[500,530,'90000000002'],[204,518,'RECEIVED, THANK YOU'],
+ [45,500,'14-09-2026'],[204,500,'AMAZON PAY WALLET'],[363,500,'1500.50'],[405,500,'Dr.'],[440,500,'30'],[500,500,'90000000001'],[204,488,'LOAD - BANGALORE'],
+]];
+// Same statement as an e-statement: summary labels with values on later lines, ₹ extracted as a backtick,
+// a chart label in front of one row's date, serial numbers, and month-name period at the foot.
+export const iciciEstatement=[[
+ [38,780,'CREDIT CARD STATEMENT',10],
+ [81,700,'Total Amount due'],[221,700,'Previous Balance'],[306,700,'Purchases / Charges'],[404,700,'Cash Advances'],[488,700,'Payments / Credits'],
+ [189,691,'='],[285,691,'+'],[378,691,'+'],[471,691,'-'],[90,685,'`'],[95,685,'4,500.50'],
+ [229,681,'`'],[233,681,'10,000.00'],[318,681,'`'],[322,681,'4,500.50'],[418,681,'`'],[422,681,'0.00'],[496,681,'`10,000.00'],
+ [73,660,'Minimum Amount due'],[96,650,'`'],[101,650,'230.00'],
+ [89,600,'SPENDS OVERVIEW'],[208,600,'Date'],[262,600,'SerNo.'],[305,600,'Transaction Details'],[443,600,'Reward'],[486,600,'Intl.'],[522,600,'Amount (in'],[552,600,'`'],[555,600,')'],
+ [445,595,'Points'],[481,595,'amount'],[208,580,'XXXXXXXXXXXX1234'],
+ [208,566,'14/09/2026'],[252,566,'90000000001'],[305,566,'AMAZON PAY WALLET LOAD BANGALORE'],[450,566,'30'],[533,566,'1,500.50'],[305,559,'IN'],
+ [48,546,'100%'],[208,546,'28/09/2026'],[252,546,'90000000002'],[305,546,'BANK PAYMENT RECEIVED, THANK YOU'],[452,546,'0'],[520,546,'10,000.00 CR'],
+ [208,526,'05/10/2026'],[252,526,'90000000003'],[305,526,'AMAZON PAY IN E COMMERC BANGALORE'],[449,526,'150'],[533,526,'3,000.00'],[53,519,'Others-100%'],[305,519,'IN'],
+ [205,500,'#'],[209,500,'International Spends'],[40,60,'Statement period : September 13, 2026 to October 12, 2026'],
+]];
 export const expected={
  hdfc:{period:{from:'2026-08-24',to:'2026-09-23'},openingHint:-500000,closingHint:-997490,
   rows:[['2026-08-25','SWIGGY BANGALORE',-45000,'Food & dining','Expense'],['2026-08-28','NETBANKING TRANSFER (Ref# ST2608280012345)',500000,'Transfers','Transfer'],['2026-09-02','AMAZON PAY INDIA PRIVATE LIMITED MUMBAI',-129900,'Shopping','Expense'],['2026-09-10','AMAZON REFUND ORDER 402-1234',50000,'Shopping','Refund'],['2026-09-15','EMI 3/12 RELIANCE DIGITAL',-850000,'Loan EMI','Expense'],['2026-09-20','ANNUAL FEE',-20000,'Fees & charges','Expense'],['2026-09-20','IGST',-2590,'Fees & charges','Expense']]},
@@ -55,4 +84,8 @@ export const expected={
   rows:[['2026-08-16','PAYMENT RECEIVED 000ICCMP1234',200000,'Transfers','Transfer'],['2026-08-18','ZOMATO LTD GURGAON',-64200,'Food & dining','Expense'],['2026-09-02','NETFLIX.COM SINGAPORE',-264900,'Entertainment','Expense'],['2026-09-02','MARKUP FEE ON INTL TXN',-9272,'Fees & charges','Expense'],['2026-09-02','GST @18%',-1669,'Fees & charges','Expense'],['2026-09-05','FUEL SURCHARGE WAIVER',5000,'Travel & transport','Refund'],['2026-09-06','INDIAN OIL PETROL PUMP',-10079,'Travel & transport','Expense']]},
  icici:{period:{from:'2026-08-16',to:'2026-09-15'},openingHint:0,closingHint:-144900,
   rows:[['2026-08-17','UBER INDIA SYSTEMS',-34900,'Travel & transport','Expense'],['2026-08-21','OPENAI CHATGPT SUBSCR',-210000,'Uncategorized','Expense'],['2026-09-01','BBPS Payment received',100000,'Transfers','Transfer']]},
+ iciciApp:{period:{from:'2026-09-14',to:'2026-10-13'},openingHint:-1000000,closingHint:-450050,
+  rows:[['2026-10-05','AMAZON PAY IN E COMMERC - BANGALORE',-300000,'Shopping','Expense'],['2026-09-28','BANK PAYMENT RECEIVED, THANK YOU',1000000,'Transfers','Transfer'],['2026-09-14','AMAZON PAY WALLET LOAD - BANGALORE',-150050,'Transfers','Transfer']]},
+ iciciEstatement:{period:{from:'2026-09-13',to:'2026-10-12'},openingHint:-1000000,closingHint:-450050,
+  rows:[['2026-09-14','AMAZON PAY WALLET LOAD BANGALORE IN',-150050,'Transfers','Transfer'],['2026-09-28','BANK PAYMENT RECEIVED, THANK YOU',1000000,'Transfers','Transfer'],['2026-10-05','AMAZON PAY IN E COMMERC BANGALORE IN',-300000,'Shopping','Expense']]},
 };
