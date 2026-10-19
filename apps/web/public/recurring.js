@@ -22,6 +22,8 @@ export function detectRecurring(transactions,statements=[]){
  const groups=new Map(),coverage=new Map(),spans=new Map();
  for(const t of transactions){const s=spans.get(t.statementId);if(!s)spans.set(t.statementId,{from:t.date,to:t.date});else{if(t.date<s.from)s.from=t.date;if(t.date>s.to)s.to=t.date;}}
  const periods=statements.map(s=>({accountId:s.accountId,...(s.from&&s.to?{from:s.from,to:s.to}:spans.get(s.id)||{})})).filter(p=>p.from);
+ // A statement can cover days with no activity, including a missing payment or an empty later month.
+ for(const p of periods)if(p.to>(coverage.get(p.accountId)||''))coverage.set(p.accountId,p.to);
  const covered=(accountId,date)=>!periods.length||periods.some(p=>p.accountId===accountId&&p.from<=date&&date<=p.to);
  for(const t of transactions){if(t.date>(coverage.get(t.accountId)||''))coverage.set(t.accountId,t.date);const k=seriesKey(t);if(k)groups.set(k,[...(groups.get(k)||[]),t]);}
  const series=[];

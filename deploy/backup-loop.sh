@@ -7,6 +7,7 @@
 set -eu
 umask 077
 hours=${BACKUP_INTERVAL_HOURS:-24}
+local_dir=${BACKUP_DIR:-/backups}
 keep=${BACKUP_KEEP:-14}
 drive=${OFFSITE_DIR:-}
 drive_keep=${OFFSITE_KEEP:-60}
@@ -15,23 +16,26 @@ ext=.dump
 [ -z "$key" ] || ext=.dump.gpg
 export GNUPGHOME=/tmp/gnupg HOME=/tmp
 mkdir -p -m 700 "$GNUPGHOME"
-fresh() { find "$1" -maxdepth 1 -name "scheduled-*$2" -mmin -$((hours * 60 + 120)) | grep -q .; }
+schedule_minutes=$((hours * 60))
+health_minutes=$((schedule_minutes + 120))
+# The grace period is only for health checks, never for deciding when a dump is due.
+fresh() { [ -d "$1" ] && find "$1" -maxdepth 1 -type f -name "scheduled-*$2" -mmin -"$3" | grep -q .; }
 prune() { ls -1t "$1"/scheduled-*"$2" 2>/dev/null | tail -n +$(($3 + 1)) | while read -r old; do rm -f -- "$old"; done; }
 gpg_batch() { gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-file "$key" "$@"; }
 
 if [ "${1:-}" = check ]; then
-  fresh /backups .dump || { echo "No local backup in the last $hours hours"; exit 1; }
-  [ -z "$drive" ] || fresh "$drive" "$ext" || { echo "No copy on the backup drive in the last $hours hours"; exit 1; }
+  fresh "$local_dir" .dump "$health_minutes" || { echo "No local backup in the last $((hours + 2)) hours"; exit 1; }
+  [ -z "$drive" ] || fresh "$drive" "$ext" "$health_minutes" || { echo "No copy on the backup drive in the last $((hours + 2)) hours"; exit 1; }
   exit 0
 fi
 
 dump() {
   stamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)
-  partial="/backups/.scheduled-$stamp.partial"
+  partial="$local_dir/.scheduled-$stamp.partial"
   if pg_dump -Fc -f "$partial" && pg_restore --list "$partial" >/dev/null; then
-    mv "$partial" "/backups/scheduled-$stamp.dump"
+    mv "$partial" "$local_dir/scheduled-$stamp.dump"
     echo "Backup saved: scheduled-$stamp.dump"
-    prune /backups .dump "$keep"
+    prune "$local_dir" .dump "$keep"
   else
     rm -f "$partial"
     echo "Backup failed; retrying next hour" >&2
@@ -49,6 +53,8 @@ store() {
     cp "$1" "$partial" && sync "$partial" && cmp -s "$1" "$partial" && pg_restore --list "$partial" >/dev/null
   fi || { rm -f "$partial"; return 1; }
   mv "$partial" "$2"
+  # Copying an old dump today must not make its contents appear newer to health checks.
+  touch -r "$1" "$2"
 }
 
 copy_to_drive() {
@@ -60,7 +66,7 @@ copy_to_drive() {
     return 0
   fi
   if [ -n "$key" ] && [ ! -r "$key" ]; then echo "Encryption key $key is not readable. Not copying." >&2; return 0; fi
-  for file in /backups/*.dump; do
+  for file in "$local_dir"/*.dump; do
     [ -f "$file" ] || continue
     name=${file##*/}
     [ -f "$drive/$name$( [ -n "$key" ] && echo .gpg)" ] && continue
@@ -76,8 +82,10 @@ copy_to_drive() {
   prune "$drive" "$ext" "$drive_keep"
 }
 
+case "${1:-run}" in run|once) ;; *) echo "Usage: backup-loop.sh [run|once|check]" >&2; exit 2;; esac
 while :; do
-  fresh /backups .dump || dump
+  fresh "$local_dir" .dump "$schedule_minutes" || dump
   copy_to_drive
+  [ "${1:-run}" != once ] || exit 0
   sleep 3600
 done

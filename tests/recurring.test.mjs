@@ -42,3 +42,19 @@ test('an expected payment between statements is uncovered, not missing',()=>{
  assert.equal(find(detectRecurring(tx,statements),'Spotify').status,'uncovered','April has no statement');
  statements.push({id:'apr',accountId:'hdfc',from:'2026-04-01',to:'2026-04-30'});assert.equal(find(detectRecurring(tx,statements),'Spotify').status,'missing');
 });
+
+test('confirmed statement ends include missing payments after the last activity',()=>{
+ const tx=['2026-01-05','2026-02-05','2026-03-05'].map(d=>({...t(d,'NETFLIX.COM',-64900),statementId:'s'}));
+ const period={id:'s',accountId:'hdfc',from:'2026-01-01',to:'2026-04-30'};
+ assert.equal(find(detectRecurring(tx,[period]),'Netflix').status,'missing');
+ assert.equal(find(detectRecurring(tx,[{...period,to:'2026-03-31'}]),'Netflix').status,'active');
+ assert.equal(find(detectRecurring(tx,[{...period,to:'2026-04-08'}]),'Netflix').status,'active','allow payment-date drift');
+});
+test('empty later statements extend coverage only for their own account',()=>{
+ const tx=['2026-01-05','2026-02-05','2026-03-05'].map(d=>({...t(d,'NETFLIX.COM',-64900),statementId:'q1'}));
+ const q1={id:'q1',accountId:'hdfc',from:'2026-01-01',to:'2026-03-31'};
+ const may={id:'may',accountId:'hdfc',from:'2026-05-01',to:'2026-05-31'};
+ assert.equal(find(detectRecurring(tx,[q1,may]),'Netflix').status,'uncovered');
+ assert.equal(find(detectRecurring(tx,[q1,{...may,accountId:'sbi'}]),'Netflix').status,'active');
+ assert.equal(find(detectRecurring(tx,[q1,may,{id:'apr',accountId:'hdfc',from:'2026-04-01',to:'2026-04-30'}]),'Netflix').status,'missing');
+});

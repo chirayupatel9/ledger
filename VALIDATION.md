@@ -35,3 +35,10 @@ Verified `https://ledger.chirayupatel.dev/login` with a valid certificate and HT
 - Search finds readable names, notes, and original references. CSV export retains both narration and label. Reimporting a renamed transaction is still detected as a duplicate.
 - Verified server rejection of oversized labels, text-only rendering of HTML-like labels, per-user isolation, and mobile editing without horizontal overflow. Inspected desktop/mobile screenshots.
 - Existing bank-account, import, reassignment, archive, backup/restore, and navigation browser regressions passed. Owner records were not used. Committed narration fixtures use synthetic reference numbers.
+
+## Backup recovery and recurring coverage — 20 October 2026 (IST)
+
+- All unit tests, TypeScript checks, whitespace checks, and Docker production builds passed. Added regressions for statement coverage beyond the last transaction, empty statements, account isolation, payment-date drift, the 24-hour backup deadline, health grace, failed-dump retry, preserved copy timestamps, and idempotent mount configuration.
+- Live Chromium bookkeeping tests passed with disposable users, including a missing recurring payment covered by a statement with no later activity. The suite also covers Excel/card imports, reconciliation, gaps, transfers, rules, bulk edits, tax export, mobile layout, paging, TOTP, and CSP. Test users were removed.
+- Restored the external disk mount after its startup dependency failure. Configured the existing UUID entry with systemd automount and a 60-second device timeout. Verified fstab parses, the boot automount unit is generated, and the mounted disk is visible inside the backup container. No reboot or disruptive unmount was performed.
+- Missing encrypted drive copies caught up; backup health checks and Docker health passed. Created a fresh manual dump, verified its encrypted drive copy decrypted to identical bytes, then restored it into a separate temporary database. User/ledger/transaction counts, revisions, original file bytes, and content digests matched. Removed the temporary database and decrypted file; retained the encrypted and source backups.

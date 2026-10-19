@@ -41,7 +41,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 
 | Gap | Why it matters | Status |
 | --- | --- | --- |
-| Backups are manual and kept only on the same host | One disk failure loses every statement. | Done: daily verified `scheduled-*.dump` backups (14 kept), copied and verified hourly to the external USB drive at `/mnt/backup/ledger` (60 kept), health-checked. Drive copies are encrypted (AES-256). A copy away from this building was skipped for now. |
+| Backups are manual and kept only on the same host | One disk failure loses every statement. | Daily verified `scheduled-*.dump` backups (14 kept), copied and verified hourly to the external USB drive at `/mnt/backup/ledger` (60 kept), health-checked. Drive copies are encrypted (AES-256). The 2026-10-20 recovery restored a failed startup mount and configured UUID-based systemd automount with a 60-second device timeout; the 24-hour schedule now excludes health grace. A copy away from this building was skipped for now. |
 | No two-step verification | Bank statements behind a single password on the public Internet. | Done (TOTP + backup codes, opt-in at `/security`) |
 | Content-Security-Policy has no `script-src`/`connect-src` | An injected script could exfiltrate financial data to another origin. | Done |
 | Test logins left in production DB (`*@example.test`) | Verified accounts nobody owns. | Done (3 accounts removed after a verified backup) |
