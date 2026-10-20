@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Delete, Req, Res, Param, Body, UseGuards, UseInterceptors, UploadedFile, HttpException } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Req, Res, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile, HttpException } from '@nestjs/common';
 import { enqueueEmail, reservedAddress } from './mail.js';
 import { invitationEmail } from '../../../packages/domain/emails.js';
 import { cleanImportReport, importReportEmail } from '../../../packages/domain/import-report.js';
@@ -7,6 +7,7 @@ import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { SessionGuard, rateLimit, type UserRequest } from './security.js';
 import { LedgerService } from './ledger.js';
+import { ledgerNavs, findSchemes } from './navs.js';
 import { pool } from './database.js';
 import { config } from './config.js';
 @Controller('api')
@@ -24,6 +25,9 @@ export class LedgerController{
   return res.status(conflict?409:200).json(conflict?{...data,error:'Your ledger changed on another device. Review the latest data and retry.'}:data);
  }
  @Get('activity') activity(@Req() req:UserRequest){return this.ledger.activity(req.user.id);}
+ // Today's official NAV for each fund scheme in your ledger, and AMFI schemes to choose from when the match is unclear.
+ @Get('navs') async navs(@Req() req:UserRequest){return ledgerNavs((await this.ledger.load(req.user.id)).state);}
+ @Get('navs/search') async searchNavs(@Req() req:UserRequest,@Query('q') q:unknown){await rateLimit('nav-search:'+req.user.id,60,60);return {schemes:await findSchemes(typeof q==='string'?q:'')};}
  @Post('files')
  @UseInterceptors(FileInterceptor('file',{storage:memoryStorage(),limits:{fileSize:20*1024*1024,files:1,fields:1,fieldSize:100,parts:2}}))
  async upload(@Req() req:UserRequest,@Body('id') id:string,@UploadedFile() file:Express.Multer.File){await rateLimit('upload:'+req.user.id,30,3600);return this.ledger.upload(req.user.id,id,file);}

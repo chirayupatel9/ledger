@@ -49,5 +49,11 @@ try {
  ALTER TABLE mail_outbox ADD COLUMN html text;
  INSERT INTO ledger_migrations(version) VALUES(5);
  `);}
+ // Official mutual fund NAVs from AMFI, the latest per scheme. Public data shared by every ledger (navs.ts keeps it current).
+ const navsMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=6');
+ if(!navsMigration.rowCount){await client.query(`
+ CREATE TABLE fund_navs(code integer PRIMARY KEY,isins text[] NOT NULL DEFAULT '{}',name text NOT NULL,plan text NOT NULL DEFAULT '',option text NOT NULL DEFAULT '',amc text NOT NULL DEFAULT '',category text NOT NULL DEFAULT '',nav numeric NOT NULL CHECK(nav>0),nav_date date NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
+ INSERT INTO ledger_migrations(version) VALUES(6);
+ `);}
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

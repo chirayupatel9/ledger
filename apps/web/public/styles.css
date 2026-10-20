@@ -83,6 +83,9 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 .sips-card,.funds-card,.months-card,.bank-investments,.empty-investments{margin-top:22px}
 .funds-table small{display:block;margin-top:3px;color:var(--muted);font-size:0.6875rem;font-weight:400}
 .funds-table td.amount small{text-align:right}
+.funds-table :is(th,td){padding-left:14px;padding-right:14px}.funds-table td:first-child{white-space:normal;min-width:230px}.funds-table td:first-child .desc{max-width:none}
+.funds-table .fund-match .text-link,.funds-table .recurring-missing .text-link{font-size:inherit}
+.nav-option{margin-top:8px}.nav-option>span:not(.amount){flex:1;min-width:0;overflow-wrap:anywhere}.nav-option .amount{text-align:right;white-space:nowrap}.nav-option .amount small{text-align:right}
 .inv-bars{display:flex;align-items:flex-end;gap:8px;height:170px;padding:8px 2px 0}
 .inv-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:6px;min-width:0}
 .inv-bar span{display:block;width:100%;max-width:36px;background:var(--green);border-radius:4px 4px 0 0;opacity:.85}
