@@ -5,7 +5,7 @@ This is the Docker edition of Ledger. It uses **Next.js / React**, a separate **
 ## Current deployment
 
 - Live app: https://ledger.chirayupatel.dev
-- Login: `chirayu@ledger.chirayupatel.dev`
+- Login: `chirayupatel911@gmail.com` (password, or Continue with Google)
 - Generated password: `.secrets/owner-login.json` (mode 0600, excluded from Git and Docker builds).
 - After signing in, use **Your account & data → Change password**. Changing a password revokes other sessions.
 - Sign-up is invite-only (`SIGNUP_MODE=invite`): only addresses the owner adds under **Settings → Invitations** can create an account, by email or Google. See [Sign-up and invitations](#sign-up-and-invitations).
@@ -39,7 +39,7 @@ Both ports bind to loopback. PostgreSQL, the API, and the Next.js server have no
 
 Indian CSV and text-table PDF imports, preview and column mapping, exact paise amounts, categorization rules, review flags, income/expense summaries, transfers/refunds, duplicate detection, original statement downloads, activity history, and JSON/CSV export are retained. PDF parsing happens in the browser; confirmed data and originals persist in PostgreSQL, not browser storage.
 
-Email/password signup requires email verification. Better Auth manages password hashing, database sessions, reset tokens, Google OAuth, origin protection, and database-backed authentication throttling. Password resets revoke sessions. API operations derive the owner from the verified session and scope every financial query by that owner. User-supplied ownership and gateway identity headers are ignored. Automatic linking of Google and password accounts by email is disabled.
+Email/password signup requires email verification. Better Auth manages password hashing, database sessions, reset tokens, Google OAuth, origin protection, and database-backed authentication throttling. Password resets revoke sessions. API operations derive the owner from the verified session and scope every financial query by that owner. User-supplied ownership and gateway identity headers are ignored. Google and password sign-in are linked only for the same verified email address.
 
 Ledger writes lock the user's database row and check the revision in one transaction. Upload quotas are checked under the same lock. Originals currently use PostgreSQL `bytea`, which keeps file deletion and ledger changes atomic and puts all records in one consistent database backup. This is deliberately simple for a single-server deployment; large installations should introduce private object storage through a storage service with a durable deletion queue. Limits: 20 MB/file, 1 GiB and 2,000 files/account, 25,000 transactions, 500 rules.
 
@@ -67,7 +67,7 @@ The existing `chatgpt.site` URL cannot host these Docker containers. Use this ma
 
 The workspace owner (the first verified account, recorded in `workspace_owners`) manages the list under **Settings → Invitations**. Adding an address emails an invitation with a sign-up link (when email is on). Each invited person gets a separate, empty ledger and cannot see anyone else's. Removing an invitation stops a pending sign-up; it does not delete an account that already exists. The rule is checked when the account is created, so the sign-up form, the API and Google sign-in all obey it. Email/password sign-up also needs email delivery, because the address must be verified.
 
-Google sign-in notes: it does not ask for Ledger's two-step verification code (the Google account's own security applies). Automatic linking is off, so an account created with a password cannot sign in with Google, and the reverse.
+Google sign-in notes: it does not ask for Ledger's two-step verification code (the Google account's own security applies). An account created with a password can also sign in with Google: the first Google sign-in links the two, but only when Google and Ledger have both verified the same email address. Different addresses are never linked.
 
 ## Operations and backups
 

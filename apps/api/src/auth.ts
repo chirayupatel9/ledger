@@ -15,7 +15,9 @@ export const auth=betterAuth({
   emailVerification:{sendOnSignUp:config.signupEnabled,sendOnSignIn:config.mailEnabled,autoSignInAfterVerification:false,
     sendVerificationEmail:config.mailEnabled?async({user,url})=>enqueueEmail(user.email,verificationEmail({url,origin:config.origin})):undefined},
   socialProviders:config.googleId&&config.googleSecret?{google:{clientId:config.googleId,clientSecret:config.googleSecret,disableSignUp:config.signupMode==='closed'}}:{},
-  account:{accountLinking:{enabled:false}},
+  // Google can be added to an existing account by signing in with it, but only when Google and Ledger have both
+  // verified the same email address. Google sign-in does not ask for Ledger's two-step code.
+  account:{accountLinking:{enabled:true,trustedProviders:[],requireLocalEmailVerified:true,allowDifferentEmails:false}},
   // Better Auth answers failed sign-ups with a decoy success (so emails cannot be probed); tell uninvited people plainly instead.
   hooks:{before:createAuthMiddleware(async ctx=>{if(ctx.path==='/sign-up/email'&&config.signupMode==='invite'&&!await invited(String(ctx.body?.email||'')))throw notInvited();})},
   // The sign-up mode is enforced where every new account is created (email or Google), not just on the form.
