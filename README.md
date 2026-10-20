@@ -180,3 +180,14 @@ and recreate the API (`sudo docker compose up -d api`). Your Ledger login addres
 - Titles appear in transactions, search, recurring payments, reports and CSV exports (`readable_name`); the original narration is never changed and is still searchable and exported.
 
 The server validates preferences and up to 500 rules, and keeps your preferences and rules when an older open tab or an older backup saves without them. Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/settings-browser.mjs` for the live checks.
+
+## Categories
+
+Ledger ships with 24 built-in categories that automatic suggestions and tax tags rely on. On **Categories → Your categories** you can:
+
+- **Add your own** (for example "Pets"), with a colour and a kind (spending or income). Use them in edits, bulk edit, import review and category rules.
+- **Relabel, recolour or hide a built-in.** Its internal name stays the same, so automatic categorisation and tax suggestions keep working; hidden categories leave the pickers but transactions keep them. Uncategorized and Transfers cannot be hidden.
+- **Rename a custom category**: its transactions and rules move with it.
+- **Delete a custom category**: if anything uses it, choose where its transactions and rules go.
+
+Every label shown must be unique. Charts, reports, search and CSV exports use your labels and colours. The server validates categories (up to 100 custom) and keeps them when an older tab or backup saves without them.

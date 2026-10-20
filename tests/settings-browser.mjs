@@ -66,11 +66,28 @@ try{
  assert.match(csv,/"Netflix subscription"/);assert.match(csv,/"Amazon groceries"/);assert.match(csv,/NETFLIXUPI/,'exports keep the original narration');
  await page.goto(base+'/reports');await page.locator('.recurring-card [data-recurring="Netflix subscription"]').waitFor();
 
+ // 7. Custom categories: add, use, relabel and hide built-ins, rename, survive an old tab, delete with a move.
+ await page.goto(base+'/categories');await page.locator('#category-add').click();let cf=page.locator('#category-form');
+ await cf.locator('[name="name"]').fill('Pets');await cf.locator('[name="color"]').fill('#aa5500');await cf.getByRole('button',{name:'Add category'}).click();await page.locator('#toast').getByText('Category added').waitFor();
+ assert.deepEqual((await state()).state.customCategories.map(c=>[c.name,c.color,c.kind]),[['Pets','#aa5500','expense']]);
+ await page.locator('[data-category-edit="Shopping"]').click();cf=page.locator('#category-form');await cf.locator('[name="name"]').fill('Shopping & home');await cf.getByRole('button',{name:'Save category'}).click();await page.locator('[data-category-row="Shopping"] b').getByText('Shopping & home').waitFor();
+ await page.locator('[data-category-edit="Entertainment"]').click();await page.locator('#category-form [name="hidden"]').check();await page.locator('#category-form').getByRole('button',{name:'Save category'}).click();await page.locator('[data-category-row="Entertainment"].hidden-category').waitFor();
+ data=await state();assert.deepEqual(data.state.categoryOverrides,{Shopping:{label:'Shopping & home'},Entertainment:{hidden:true}});
+ await page.locator('nav [data-page="transactions"]').click();await page.locator('[data-edit="amz"]').click();const pick=page.locator('#inline-transaction-form [name="category"]');
+ assert.equal(await pick.locator('option[value="Entertainment"]').count(),0,'hidden categories leave the picker');assert.equal(await pick.locator('option[value="Shopping"]').innerText(),'Shopping & home');
+ await pick.selectOption('Pets');await page.getByRole('button',{name:'Save changes'}).click();await page.locator('#inline-transaction-form').waitFor({state:'detached'});
+ assert.equal((await state()).state.transactions.find(t=>t.id==='amz').category,'Pets');assert.match(await page.locator('[data-transaction="amz"]').innerText(),/Pets/);
+ await page.goto(base+'/categories');const petsId=(await state()).state.customCategories[0].id;await page.locator('[data-category-edit="Pets"]').click();await page.locator('#category-form [name="name"]').fill('Pet care');await page.locator('#category-form').getByRole('button',{name:'Save category'}).click();await page.locator('[data-category-row="Pet care"]').waitFor();
+ data=await state();assert.equal(data.state.transactions.find(t=>t.id==='amz').category,'Pet care');assert.equal(data.state.customCategories[0].id,petsId);
+ delete data.state.customCategories;delete data.state.categoryOverrides;assert.equal((await put(data)).status(),200);data=await state();assert.equal(data.state.customCategories.length,1,'an older tab cannot erase categories');assert.equal(data.state.categoryOverrides.Shopping.label,'Shopping & home');
+ await page.reload();await page.locator('[data-category-delete="Pet care"]').click();await page.locator('#category-move').selectOption('Shopping');await page.locator('#category-delete-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});
+ data=await state();assert.equal(data.state.customCategories.length,0);assert.equal(data.state.transactions.find(t=>t.id==='amz').category,'Shopping');
+
  // 6. Defaults can be previewed and restored; both pages fit a phone screen.
  await page.goto(base+'/settings');await form.waitFor();await page.getByRole('button',{name:'Preview defaults'}).click();assert.equal((await root()).theme,'light');
  await page.getByRole('button',{name:'Save settings'}).click();await page.locator('#toast').getByText('Display settings saved').waitFor();assert.equal((await state()).state.preferences.fontSize,16);
  await page.setViewportSize({width:390,height:844});for(const p of ['settings','titles']){await page.goto(base+'/'+p);await page.locator('.settings-card').first().waitFor();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,p+' fits mobile');}
  await page.screenshot({path:'playwright-results/titles-mobile.png',fullPage:true});
  assert.deepEqual(problems,[]);
- console.log('PASS: settings preview, unsaved-change guard, saved appearance (dark theme, font size, serif, compact), dashboard and transaction display toggles, old-tab safety, naming rules (create, priority, remove), individual titles, search, CSV export, recurring payees, defaults, mobile layout, no CSP violations.');
+ console.log('PASS: custom categories (add, assign, relabel, hide, rename, old-tab safety, delete with move), settings preview, unsaved-change guard, saved appearance (dark theme, font size, serif, compact), dashboard and transaction display toggles, old-tab safety, naming rules (create, priority, remove), individual titles, search, CSV export, recurring payees, defaults, mobile layout, no CSP violations.');
 }finally{await browser.close();if(created)await operator(false);}

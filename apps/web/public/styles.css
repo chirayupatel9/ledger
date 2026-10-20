@@ -68,3 +68,7 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 :root[data-theme=dark] .transfer-strip{background:#15241e;border-color:#25392f;color:#a8cbb9}:root[data-theme=dark] .transfer-strip b{color:#d6ece0}:root[data-theme=dark] .transfer-strip p{color:#9ab9a9}
 .pair-heading{font-size:.8125rem;margin:18px 0 4px}.pair-choice{border:1px solid var(--border);border-radius:9px;padding:10px 12px 12px;margin:10px 0}.pair-choice legend{font-size:.75rem;padding:0 6px;max-width:100%}.pair-choice .pair-row{margin-top:8px}.pair-narration{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.625rem;overflow-wrap:anywhere}
 :root[data-theme=dark] .pair-choice{border-color:#26332e}
+.categories-card{margin-top:22px}.category-row{display:flex;align-items:center;gap:12px;padding:12px 22px;border-top:1px solid var(--border);font-size:.75rem}.category-row>div:nth-child(2){flex:1;min-width:0}.category-row .bank-actions .btn{margin:0}.category-row .category-swatch{width:14px;height:14px;flex-shrink:0}
+.hidden-category{opacity:.6}.category-form{padding:14px 22px 18px;background:#f5f8f1;border-top:1px solid var(--border)}.category-form .field{margin:4px 0}.color-input{height:40px;padding:4px;width:100%;cursor:pointer}
+:root[data-theme=dark] .category-form{background:#1b2823}:root[data-theme=dark] .category-row{border-color:#22302a}
+@media(max-width:650px){.category-row{flex-wrap:wrap;padding:12px 14px}.category-row .bank-actions{width:100%}.category-form{padding:12px 14px}}
