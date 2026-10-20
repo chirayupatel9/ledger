@@ -68,7 +68,7 @@ try{
  assert.match(await page.locator('#reconcile-result .notice.success').innerText(),/Units match the closing unit balance of all 4 schemes\. Every row was read\./);
  assert.match(await page.locator('#reconcile-result').innerText(),/1 scheme began this statement with units bought earlier \(Beta Liquid Fund - Regular Growth · Folio 222\/02: 20\.000\)/);
  assert.match(await modal.innerText(),/2 possible duplicate\(s\) are unchecked/);
- assert.match(await modal.locator('.import-table').innerText(),/SIP Purchase · Alpha Flexi Cap Fund - Regular Plan - Growth · Folio 111\/01 · 13\.512 units @ ₹1850\.10/);
+ assert.match(await modal.locator('.import-table').innerText(),/SIP Purchase · Alpha Flexi Cap Fund - Regular Plan - Growth · ISIN INF000A01AA1 · Folio 111\/01 · 13\.512 units @ ₹1850\.10/);
  assert.equal(await modal.locator('.notice.error').count(),0);
  if(process.env.SHOT_DIR)await modal.screenshot({path:process.env.SHOT_DIR+'/cas-review.png'});
  await page.locator('#commit-import').click();await modal.waitFor({state:'hidden'});

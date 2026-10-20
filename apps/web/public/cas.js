@@ -1,7 +1,8 @@
 // Mutual fund Consolidated Account Statements (CAS) from CAMS and KFintech. Each scheme section has a folio, the scheme
 // name with its ISIN, an opening unit balance, dated rows (amount, units, NAV, unit balance; brackets are negative) and
-// a closing unit balance. Rows come out in the fund report format ("SIP Purchase · Scheme · Folio 123/45 · 13.027 units
-// @ ₹1918.97", stamp duty as its own row), so the Investments page reads them like any other fund report.
+// a closing unit balance. Rows come out in the fund report format plus the ISIN ("SIP Purchase · Scheme · ISIN INF…
+// · Folio 123/45 · 13.027 units @ ₹1918.97", stamp duty as its own row), so the Investments page reads them like any
+// other fund report.
 import {parseDate} from './core.js';
 import {parseFundRow} from './investments.js';
 const lineText=line=>line.items.map(x=>x.text).join(' ').replace(/\s+/g,' ').trim();
@@ -23,7 +24,8 @@ export function parseCASLines(pages,account){
  pages.forEach((lines,pi)=>lines.forEach((line,li)=>{const t=lineText(line),where=`page ${pi+1}, line ${li+1}`;
   if(/^folio\s*no\b/i.test(t)){folio=(t.match(/^folio\s*no\.?\s*:?\s*([\w-]+(?:\s*\/\s*[\w-]+)?)/i)?.[1]||'').replace(/\s+/g,'');open=null;}
   // A long scheme name can wrap: its first line starts with the scheme code, the ISIN is on the next.
-  else if(folio&&/\bISIN\b/i.test(t))schemes.push(open={folio,scheme:schemeName(!schemeCode.test(t)&&schemeCode.test(prev)?prev+' '+t:t),opening:0,closing:null,rows:[]});
+  else if(folio&&/\bISIN\b/i.test(t)){const full=!schemeCode.test(t)&&schemeCode.test(prev)?prev+' '+t:t,isin=(full+' '+lineText(lines[li+1]||{items:[]})).match(/\bISIN\s*:?\s*(IN[A-Z0-9]{10})\b/i)?.[1].toUpperCase()||'';
+   schemes.push(open={folio,isin,scheme:schemeName(full),opening:0,closing:null,rows:[]});}
   else if(open&&/opening unit balance/i.test(t))open.opening=units(t.match(/opening unit balance\s*:?\s*(\(?-?[\d,]*\.?\d+\)?)/i)?.[1]||'0');
   else if(open&&/closing unit balance/i.test(t)){const m=t.match(/closing unit balance\s*:?\s*(\(?-?[\d,]*\.?\d+\)?)/i);open.closing=m?units(m[1]):null;open=null;}
   else if(open&&casDate.test(t)){
@@ -45,18 +47,19 @@ export function parseCASLines(pages,account){
    s.rows.forEach((x,j)=>{if(x.tax||!x.units||x.sign!==want||x.date!==r.date||x.taxed?.[r.tax])return;const d=Math.abs(j-i)+(j>i?0.5:0);if(!best||d<best.d)best={x,d};});
    if(best){best.x.taxed={...best.x.taxed,[r.tax]:true};best.x.taxes=(best.x.taxes||0)+r.amount;}});
  }
- const transactions=[],folioPart=s=>s.folio?['Folio '+s.folio]:[];
+ // The ISIN follows the scheme, so live NAVs can match the fund exactly.
+ const transactions=[],ids=s=>[...s.isin?['ISIN '+s.isin]:[],...s.folio?['Folio '+s.folio]:[]];
  const checks=schemes.map(s=>{const own=[];
   for(const r of s.rows){
-   if(r.tax){own.push({id:crypto.randomUUID(),date:r.date,description:[r.tax,s.scheme,...folioPart(s)].join(' · '),amount:-r.amount,account,category:'Taxes',type:'Expense',review:false});continue;}
+   if(r.tax){own.push({id:crypto.randomUUID(),date:r.date,description:[r.tax,s.scheme,...ids(s)].join(' · '),amount:-r.amount,account,category:'Taxes',type:'Expense',review:false});continue;}
    if(!r.units||!r.amount||!r.date){invalid.push(r.where);continue;}
    const net=r.amount-(r.taxes||0),amount=r.sign>0?r.amount+(r.taxes||0):-(net>0?net:r.amount);
-   own.push({id:crypto.randomUUID(),date:r.date,description:[kindOf(r.words,r.sign),s.scheme,...folioPart(s),`${r.unitsText} units @ ₹${r.nav}`].join(' · '),amount,account,category:'Investments',type:'Transfer',review:true});
+   own.push({id:crypto.randomUUID(),date:r.date,description:[kindOf(r.words,r.sign),s.scheme,...ids(s),`${r.unitsText} units @ ₹${r.nav}`].join(' · '),amount,account,category:'Investments',type:'Transfer',review:true});
   }
   transactions.push(...own);
   // Read the units back the way the Investments page will, from the descriptions just written.
   const total=own.reduce((v,t)=>{const f=parseFundRow(t);return t.category==='Investments'&&f.units!==null?v+(t.amount>0?f.units:-f.units):v;},s.opening);
-  return {scheme:s.scheme,folio:s.folio,opening:s.opening,closing:s.closing,units:total,rows:own.length,breaks:s.breaks,ok:s.closing!==null&&total===s.closing};
+  return {scheme:s.scheme,isin:s.isin,folio:s.folio,opening:s.opening,closing:s.closing,units:total,rows:own.length,breaks:s.breaks,ok:s.closing!==null&&total===s.closing};
  });
  const warnings=[`Mutual fund Consolidated Account Statement: ${schemes.length} scheme${schemes.length===1?'':'s'} in ${new Set(schemes.map(s=>s.folio)).size} folio${new Set(schemes.map(s=>s.folio)).size===1?'':'s'}. Purchases are recorded at the amount debited from your bank (amount plus stamp duty), with stamp duty as its own charge; redemptions and switches out are money out, net of STT. All rows are marked for review.`];
  if(!schemes.length)warnings.push('No scheme sections with transactions were found. Request the detailed CAS (not the summary) from CAMS or KFintech.');

@@ -20,15 +20,15 @@ test('a CAS PDF becomes fund report rows: stamp duty in the purchase and as its 
  assert.deepEqual(r.period,{from:'2026-05-01',to:'2026-10-20'});
  assert.equal(r.transactions.length,22);
  assert.deepEqual(shape(r).slice(0,2),[
-  ['2026-05-10',2500000,'Investments','Transfer','SIP Purchase · Alpha Flexi Cap Fund - Regular Growth · Folio 111/01 · 13.512 units @ ₹1850.10'],
-  ['2026-05-10',-125,'Taxes','Expense','Stamp duty · Alpha Flexi Cap Fund - Regular Growth · Folio 111/01']]);
+  ['2026-05-10',2500000,'Investments','Transfer','SIP Purchase · Alpha Flexi Cap Fund - Regular Growth · ISIN INF000A01AA1 · Folio 111/01 · 13.512 units @ ₹1850.10'],
+  ['2026-05-10',-125,'Taxes','Expense','Stamp duty · Alpha Flexi Cap Fund - Regular Growth · ISIN INF000A01AA1 · Folio 111/01']]);
  const find=re=>shape(r).find(t=>re.test(t[4]));
- assert.deepEqual(find(/^Purchase · Alpha/),['2026-09-21',20000000,'Investments','Transfer','Purchase · Alpha Flexi Cap Fund - Regular Growth · Folio 111/01 · 98.110 units @ ₹2038.43']);
- assert.deepEqual(find(/^Switch In/),['2026-08-10',5000000,'Investments','Transfer','Switch In · Beta Mid Cap Fund - Regular Growth · Folio 222/02 · 106.355 units @ ₹470.10'],'a wrapped scheme name is joined');
- assert.deepEqual(find(/^Switch Out/),['2026-08-10',-5000000,'Investments','Transfer','Switch Out · Beta Liquid Fund - Regular Growth · Folio 222/02 · 18.000 units @ ₹2777.7778']);
- assert.deepEqual(find(/^Redemption/),['2026-09-30',-2999970,'Investments','Transfer','Redemption · Beta Mid Cap Fund - Regular Growth · Folio 222/02 · 61.200 units @ ₹490.20']);
- assert.deepEqual(find(/^STT/),['2026-09-30',-30,'Taxes','Expense','STT · Beta Mid Cap Fund - Regular Growth · Folio 222/02']);
- assert.deepEqual(find(/^Dividend Reinvestment/),['2026-08-20',13863,'Investments','Transfer','Dividend Reinvestment · Gamma Large and Mid Cap Fund - Direct Plan - IDCW · Folio 333/03 · 1.261 units @ ₹109.94']);
+ assert.deepEqual(find(/^Purchase · Alpha/),['2026-09-21',20000000,'Investments','Transfer','Purchase · Alpha Flexi Cap Fund - Regular Growth · ISIN INF000A01AA1 · Folio 111/01 · 98.110 units @ ₹2038.43']);
+ assert.deepEqual(find(/^Switch In/),['2026-08-10',5000000,'Investments','Transfer','Switch In · Beta Mid Cap Fund - Regular Growth · ISIN INF000B01BB2 · Folio 222/02 · 106.355 units @ ₹470.10'],'a wrapped scheme name is joined');
+ assert.deepEqual(find(/^Switch Out/),['2026-08-10',-5000000,'Investments','Transfer','Switch Out · Beta Liquid Fund - Regular Growth · ISIN INF000B01CC3 · Folio 222/02 · 18.000 units @ ₹2777.7778']);
+ assert.deepEqual(find(/^Redemption/),['2026-09-30',-2999970,'Investments','Transfer','Redemption · Beta Mid Cap Fund - Regular Growth · ISIN INF000B01BB2 · Folio 222/02 · 61.200 units @ ₹490.20']);
+ assert.deepEqual(find(/^STT/),['2026-09-30',-30,'Taxes','Expense','STT · Beta Mid Cap Fund - Regular Growth · ISIN INF000B01BB2 · Folio 222/02']);
+ assert.deepEqual(find(/^Dividend Reinvestment/),['2026-08-20',13863,'Investments','Transfer','Dividend Reinvestment · Gamma Large and Mid Cap Fund - Direct Plan - IDCW · ISIN INF000G01DD4 · Folio 333/03 · 1.261 units @ ₹109.94']);
  assert.equal(r.transactions.filter(t=>/Address/i.test(t.description)).length,0,'notes are not transactions');
  assert.ok(r.transactions.every(t=>t.account==='Mutual funds'&&t.review===(t.category==='Investments')));
  assert.equal(transactionLabel(r.transactions[0]).title,'Alpha Flexi Cap Fund · SIP Purchase');assert.equal(transactionLabel(r.transactions.find(t=>/^STT/.test(t.description))).title,'Beta Mid Cap Fund · STT');
@@ -44,6 +44,11 @@ test('each scheme’s units, read back from the rows, are checked against its cl
  const missing=await parse(casPages.map(items=>items.filter(i=>i[1]!==500)));
  assert.deepEqual(missing.cas.map(s=>s.ok),[false,true,true,true]);assert.equal(missing.cas[0].units,1633220-132930);assert.equal(missing.cas[0].breaks,1);
  const misread=await parse(edit(casPages,'Closing Unit Balance: 99.737','Closing Unit Balance: 99.000'));assert.equal(misread.cas[1].ok,false);
+ assert.deepEqual(r.cas.map(s=>s.isin),['INF000A01AA1','INF000B01BB2','INF000B01CC3','INF000G01DD4']);
+ // An ISIN printed on the line after its label is still found.
+ const split=structuredClone(casPages),at=split[2].findIndex(i=>i[2].startsWith('G7LMD-'));
+ split[2].splice(at,1,[40,612,'G7LMD-Gamma Large and Mid Cap Fund - Direct Plan - IDCW - ISIN:'],[40,606,'INF000G01DD4(Advisor: DIRECT) Registrar : CAMS']);
+ assert.deepEqual(shape(await parse(split)),shape(r));
 });
 test('the same CAS as single text runs, or password-protected, reads identically',async()=>{
  const plain=shape(await parse(casPages));
@@ -58,7 +63,7 @@ test('direction follows the units: unbracketed redemptions and purchase reversal
  pages[2].splice(at,2,[40,562,'15-Jul-2026'],[96,562,'*** Purchase Reversal ***'],[300,562,'(9,999.50)'],[360,562,'(92.417)'],[425,562,'108.20'],[495,562,'0.000']);
  pages[2]=edit(edit([pages[2]],'93.678','1.261'),'Closing Unit Balance: 93.678','Closing Unit Balance: 1.261')[0];
  const r=await parse(pages),rev=r.transactions.find(t=>/reversal/i.test(t.description));
- assert.equal(rev.description,'Purchase reversal · Gamma Large and Mid Cap Fund - Direct Plan - IDCW · Folio 333/03 · 92.417 units @ ₹108.20');assert.equal(rev.amount,-999950);
+ assert.equal(rev.description,'Purchase reversal · Gamma Large and Mid Cap Fund - Direct Plan - IDCW · ISIN INF000G01DD4 · Folio 333/03 · 92.417 units @ ₹108.20');assert.equal(rev.amount,-999950);
  assert.equal(r.cas[3].ok,true);assert.equal(transactionLabel(rev).title,'Reversal · Gamma Large and Mid Cap Fund · Purchase');
 });
 test('payouts and unreadable rows are reported, not guessed',async()=>{
@@ -83,8 +88,8 @@ test('rows already imported from a fund report are duplicates, and the CAS takes
  const data=await readSpreadsheet(fundReport()),report=mapRows(data,guessMapping(data.headers),'Mutual funds',[],{investment:true}).transactions.map(t=>({...t,accountId:'mf'}));
  const cas=(await parse(casPages)).transactions.map(t=>({...t,accountId:'mf'})),matched=matchFundRows(report,cas);
  assert.deepEqual(matched.filter(t=>t.duplicate).map(t=>[t.date,t.amount]),[['2026-07-10',2500000],['2026-07-10',-125],['2026-09-21',20000000],['2026-09-21',-1000],['2026-07-10',2500000],['2026-07-10',-125],['2026-09-30',-2999970]]);
- assert.equal(matched[0].description,'SIP Purchase · Alpha Flexi Cap Fund - Regular Plan - Growth · Folio 111/01 · 13.512 units @ ₹1850.10');
- assert.equal(matched[1].description,'Stamp duty · Alpha Flexi Cap Fund - Regular Plan - Growth · Folio 111/01');
+ assert.equal(matched[0].description,'SIP Purchase · Alpha Flexi Cap Fund - Regular Plan - Growth · ISIN INF000A01AA1 · Folio 111/01 · 13.512 units @ ₹1850.10');
+ assert.equal(matched[1].description,'Stamp duty · Alpha Flexi Cap Fund - Regular Plan - Growth · ISIN INF000A01AA1 · Folio 111/01');
  assert.ok(matched.find(t=>/^Switch Out/.test(t.description)).description.includes('Beta Liquid Fund - Regular Growth'),'schemes the report does not have keep their CAS names');
  assert.deepEqual(matchFundRows(report.map(t=>({...t,accountId:'other'})),cas).filter(t=>t.duplicate),[],'another account is not a duplicate');
  // Together: one fund per scheme, with the CAS filling in the months the report does not cover.
