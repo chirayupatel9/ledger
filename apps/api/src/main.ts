@@ -11,6 +11,7 @@ import { SessionGuard, Errors } from './security.js';
 import { LedgerController, PublicController, InvitesController, ImportFailuresController } from './controllers.js';
 import { pool } from './database.js';
 import { startMailer } from './mail.js';
+import { startNavUpdates } from './navs.js';
 @Module({controllers:[PublicController,LedgerController,InvitesController,ImportFailuresController],providers:[LedgerService,SessionGuard]})
 class AppModule{}
 const app=await NestFactory.create(AppModule,{bodyParser:false,logger:['error','warn','log']});
@@ -22,5 +23,6 @@ app.useGlobalFilters(new Errors());
 app.enableShutdownHooks();
 await app.listen(config.port,'0.0.0.0');
 const stopMailer=config.mailEnabled?startMailer():()=>{};
+const stopNavs=startNavUpdates();
 const cleanup=setInterval(()=>pool.query("DELETE FROM request_limits WHERE expires_at < now()-interval '1 day'").catch(()=>{}),3600000);cleanup.unref();
-process.once('SIGTERM',()=>{stopMailer();clearInterval(cleanup);void pool.end();});
+process.once('SIGTERM',()=>{stopMailer();stopNavs();clearInterval(cleanup);void pool.end();});

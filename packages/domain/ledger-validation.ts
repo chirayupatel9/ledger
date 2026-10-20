@@ -3,7 +3,7 @@ import {categories,parseDate} from './core.js';
 import {taxTagIds} from './tax.js';
 import {normalizeTransfers} from './transfers.js';
 import {defaultPreferences} from './preferences.js';
-export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>};
+export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;fundMatches:{scheme:string;code:number|null}[]};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
 const string=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max;
@@ -69,5 +69,14 @@ export function validateLedger(input:any):LedgerState{
   if(matches.has(key))fail('A title rule already uses that match. Edit the existing rule.');
   ruleIds.add(r.id);matches.add(key);return {id:r.id,mode:r.mode,keyword,title:r.title.trim()};
  });
- return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides};
+ // The AMFI scheme you chose for a fund scheme in your reports (code null: do not match it). One choice per scheme name.
+ if(input.fundMatches!==undefined&&!Array.isArray(input.fundMatches))fail('Invalid fund matches.');
+ if(input.fundMatches?.length>500)fail('Up to 500 fund matches are supported.');
+ const schemes=new Set<string>();
+ const fundMatches=(input.fundMatches||[]).map((m:any)=>{
+  if(!m||!string(m.scheme,300)||!m.scheme.trim()||(m.code!==null&&!(Number.isSafeInteger(m.code)&&m.code>0&&m.code<1e8)))fail('Invalid fund match. Choose a scheme from the list.');
+  const scheme=m.scheme.trim().replace(/\s+/g,' ');if(schemes.has(scheme.toLowerCase()))fail('A fund is matched twice. Refresh and retry.');
+  schemes.add(scheme.toLowerCase());return {scheme,code:m.code};
+ });
+ return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches};
 }
