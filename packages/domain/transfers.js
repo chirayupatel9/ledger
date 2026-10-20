@@ -1,5 +1,6 @@
 // Transfers between the user's own accounts: a debit in one account and a credit of the same amount in another.
 // A link is a shared transferId on exactly two Transfer legs; anything else is treated as unlinked.
+import {classify} from './core.js';
 const DAY=86400000,days=(a,b)=>Math.round(Math.abs(Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/DAY);
 // UPI RRNs, NEFT/IMPS UTRs and card payment references: runs of 8+ digits, ignoring masked card numbers.
 const references=t=>new Set((String(t.description).match(/\d{8,}/g)||[]));
@@ -16,18 +17,24 @@ export function linkTransfer(transactions,a,b,id=crypto.randomUUID()){
 }
 // Legs that could pair with t, for manual linking: other account, opposite equal amount, within a week.
 export function linkCandidates(transactions,t,window=7){return transactions.filter(x=>x!==t&&x.accountId!==t.accountId&&x.amount===-t.amount&&days(x.date,t.date)<=window).sort((x,y)=>days(x.date,t.date)-days(y.date,t.date));}
-function score(debit,credit,maxDays){
+// Narrations are re-read with today's rules, so rows imported before a rule existed still count as transfers or investments.
+function hints(t,memo){let h=memo.get(t);if(!h){const c=t.type==='Transfer'?t:classify(String(t.description||''),t.amount),investment=t.category==='Investments'||c.category==='Investments';h={investment,transfer:!investment&&(t.type==='Transfer'||c.type==='Transfer')};memo.set(t,h);}return h;}
+function score(debit,credit,maxDays,ctx){
  const gap=days(debit.date,credit.date);if(gap>maxDays)return null;
- const shared=[...references(debit)].find(r=>references(credit).has(r)),transfers=(debit.type==='Transfer')+(credit.type==='Transfer');
+ const d=hints(debit,ctx.memo),c=hints(credit,ctx.memo);
+ // Money sent to a broker or fund never pays a card bill or reaches a bank account, unless that account is an Investment account you track.
+ if((d.investment||c.investment)&&!ctx.investmentAccounts.has(debit.accountId)&&!ctx.investmentAccounts.has(credit.accountId))return null;
+ const shared=[...references(debit)].find(r=>references(credit).has(r)),transfers=d.transfer+c.transfer;
  // Equal amounts alone are common (rent, splits); require a Transfer leg or a shared reference.
  if(!shared&&!transfers)return null;
  return {debit,credit,value:(shared?5:0)+transfers*2+(gap===0?2:gap===1?1:0),reason:shared?`Same reference ${shared}`:gap===0?'Same day':`${gap} day${gap>1?'s':''} apart`};
 }
-// Proposes pairs that are each other's single best match; ties are left for the user to link by hand.
-export function findTransferPairs(transactions,{maxDays=3}={}){
+// Proposes pairs that are each other's single best match. Ties come back as choices for the user to settle.
+export function findTransferPairs(transactions,{maxDays=3,accounts=[]}={}){
+ const ctx={memo:new Map(),investmentAccounts:new Set(accounts.filter(a=>a.type==='Investment').map(a=>a.id))};
  const open=transactions.filter(t=>!t.transferId),credits=new Map();
  for(const t of open)if(t.amount>0)credits.set(t.amount,[...(credits.get(t.amount)||[]),t]);
- let edges=[];for(const debit of open)if(debit.amount<0)for(const credit of credits.get(-debit.amount)||[])if(credit.accountId!==debit.accountId){const e=score(debit,credit,maxDays);if(e)edges.push(e);}
+ let edges=[];for(const debit of open)if(debit.amount<0)for(const credit of credits.get(-debit.amount)||[])if(credit.accountId!==debit.accountId){const e=score(debit,credit,maxDays,ctx);if(e)edges.push(e);}
  const pairs=[];let changed=true;
  while(changed){changed=false;
   const best=new Map();for(const e of edges)for(const t of [e.debit,e.credit]){const b=best.get(t);if(!b||e.value>b.value)best.set(t,{value:e.value,edge:e,tie:false});else if(e.value===b.value)b.tie=true;}
@@ -36,7 +43,11 @@ export function findTransferPairs(transactions,{maxDays=3}={}){
   edges=edges.filter(e=>!taken.has(e.debit)&&!taken.has(e.credit));
  }
  const ambiguous=new Set(edges.flatMap(e=>[e.debit,e.credit])).size;
- return {pairs:pairs.sort((a,b)=>a.debit.date.localeCompare(b.debit.date)),ambiguous};
+ // Group what is left by the transaction that has several candidates, best candidates first.
+ const choices=[],seen=new Set(),group=side=>{const m=new Map();for(const e of edges)m.set(e[side],[...(m.get(e[side])||[]),e]);return [...m];};
+ for(const [anchor,list] of [...group('credit'),...group('debit')]){if(list.length<2||seen.has(anchor))continue;seen.add(anchor);const other=anchor.amount>0?'debit':'credit';
+  choices.push({anchor,options:list.sort((a,b)=>b.value-a.value||days(a[other].date,anchor.date)-days(b[other].date,anchor.date)).map(e=>({other:e[other],debit:e.debit,credit:e.credit,reason:e.reason}))});}
+ return {pairs:pairs.sort((a,b)=>a.debit.date.localeCompare(b.debit.date)),ambiguous,choices:choices.sort((a,b)=>a.anchor.date.localeCompare(b.anchor.date))};
 }
 export function unpairedTransfers(transactions){return transactions.filter(t=>t.type==='Transfer'&&t.category==='Transfers'&&!t.transferId);}
 // Money moved between your own accounts: linked legs cancel out (net 0 when both legs are in view).
@@ -46,4 +57,7 @@ export function transferSummary(transactions){
  return {...s,net:s.linkedIn-s.linkedOut};
 }
 // Proposed pairs that involve at least one of the given transaction ids (for example, rows just imported).
-export function pairsInvolving(transactions,ids){const set=new Set(ids);return findTransferPairs(transactions).pairs.filter(p=>set.has(p.debit.id)||set.has(p.credit.id));}
+export function pairsInvolving(transactions,ids,options){const set=new Set(ids);return findTransferPairs(transactions,options).pairs.filter(p=>set.has(p.debit.id)||set.has(p.credit.id));}
+// Pairs and choices touching the given ids, used to prompt right after an import.
+export function suggestionsInvolving(transactions,ids,options){const set=new Set(ids),r=findTransferPairs(transactions,options),touches=(...t)=>t.some(x=>set.has(x.id));
+ return {pairs:r.pairs.filter(p=>touches(p.debit,p.credit)),choices:r.choices.filter(g=>touches(g.anchor,...g.options.map(o=>o.other)))};}

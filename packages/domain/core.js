@@ -1,4 +1,4 @@
-import {transactionLabel} from './transaction-labels.js';
+import {transactionLabel,isSelfTransfer} from './transaction-labels.js';
 const palette={'Salary':'#426e59','Freelance & business':'#588d79','Interest':'#85aa91','Dividends':'#6f9a7f','Rental income':'#9fbf8f','Other income':'#b9cfa6','Shopping':'#8b93cc','Food & dining':'#d7a272','Groceries':'#aab786','Travel & transport':'#729db0','Bills & utilities':'#c9b480','Rent':'#b6a1c3','Health':'#c37f7c','Insurance':'#7fa3a0','Education':'#9c8fc4','Entertainment':'#8cacc1','Loan EMI':'#b98a6e','Taxes':'#a7705f','Fees & charges':'#c49a9a','Donations':'#d4a5b8','Cash withdrawal':'#b5ab8c','Investments':'#94a99c','Transfers':'#a0aaa7','Uncategorized':'#c5c8c6'};
 export const categories=Object.keys(palette);
 export const colors=categories.map(c=>palette[c]);
@@ -15,7 +15,7 @@ const rules=[
  ['Rental income',/\brent(?:al)?\b/i,'in'],
  ['Insurance',/insurance|\blic\b|star health|niva bupa|care health|hdfc ergo|icici lombard|icici pru|max life|sbi life|tata aia|bajaj allianz|aditya birla (?:health|sun life)|policybazaar|go digit|\backo\b/i,'out'],
  ['Loan EMI',/\bemi\b|\bloan\b|\bhsg\b|housing fin|bajaj fin|home credit|tata capital|hdb fin|l&t fin|muthoot/i,'out'],
- ['Investments',/zerodha|groww|upstox|angel ?one|kuvera|paytm money|icici ?direct|hdfc ?sec|kotak sec|mutual fund|\bsip\b|\bmf\b|\bnps\b|\bppf\b|\bcams\b|kfin|bse ?star|indian clearing|\biccl\b|nse clearing|smallcase|sovereign gold|\bsgb\b|\bnsdl\b/i],
+ ['Investments',/zerodha|groww|upstox|angel ?one|kuvera|paytm money|icici ?direct|hdfc ?sec|kotak sec|mutual fund|\bsip\b|\bmf\b|\bnps\b|\bppf\b|\bcams\b|kfin|bse ?star|indian clearing|\biccl\b|nse ?clearing|bse ?clearing|\bnsccl\b|\bcdsl\b|smallcase|sovereign gold|\bsgb\b|\bnsdl\b/i],
  ['Donations',/donation|pm ?cares|charit|giveindia|ketto|milaap/i,'out'],
  ['Education',/school|college|universit|tuition|byju|unacademy|vedantu|coursera|udemy|exam fee/i,'out'],
  ['Food & dining',/swiggy(?! ?instamart)|zomato|starbucks|restaurant|\bcafe\b|coffee|domino|mcdonald|\bkfc\b|pizza|burger|chaayos|haldiram|eatsure|barbeque/i],
@@ -33,7 +33,7 @@ export function classify(description,amount,custom=[],{card=false}={}){
  const own=custom.find(r=>description.toLowerCase().includes(r.keyword.toLowerCase()));
  let found=own?.category||rules.find(([,re,d])=>(!d||d===direction)&&re.test(description))?.[0];
  if(card&&amount>0&&!own)found=/cash ?back|reward/i.test(description)?'Other income':/refund|revers|cancel|waiver/i.test(description)?found:'Transfers';
- const transfer=(!card&&/self transfer|own account|credit card|card ?bill|cc ?payment|\bcc\b.*\b(?:bill|autopay|pymt|payment)\b|\bccpay\b|\bcred club\b|cash dep|\bcdm\b|\bby cash\b/i.test(description))||found==='Transfers'||found==='Investments';
+ const transfer=(!card&&(/self transfer|own account|credit card|card ?bill|cc ?payment|\bcc\b.*\b(?:bill|autopay|pymt|payment)\b|\bccpay\b|\bcred club\b|cash dep|\bcdm\b|\bby cash\b/i.test(description)||isSelfTransfer(description)))||found==='Transfers'||found==='Investments';
  const type=transfer?'Transfer':amount>=0?(/refund|revers|waiver/i.test(description)?'Refund':'Income'):'Expense';
  const category=transfer?(found==='Investments'?found:'Transfers'):found||'Uncategorized';
  return {category,type,review:!found||transfer||(amount>0&&!['Salary','Interest','Dividends'].includes(category))};

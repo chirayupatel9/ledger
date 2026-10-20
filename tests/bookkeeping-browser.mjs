@@ -124,6 +124,16 @@ try{
  await page.locator('#type-filter').selectOption('all');
  await page.goto(base+'/reports?period=fy-2026');const transfers=page.locator('.transfers-card');await transfers.waitFor();
  assert.match(await transfers.innerText(),/Linked transfers out · 1 pair\s+−₹5,000\.00[\s\S]*Linked transfers in\s+\+₹5,000\.00[\s\S]*Net\s+₹0\.00/);
+ // 8b2. Two equally likely bank debits for one card payment: the dialog asks which one; an NSE Clearing debit is never offered.
+ data=await state();const bankSt=data.state.statements.find(st=>st.name==='hdfc-aug.csv').id,cardSt=data.state.statements.find(st=>st.accountId==='card').id;
+ data.state.transactions.push({id:'tie-card',statementId:cardSt,accountId:'card',account:'HDFC Credit Card',date:'2026-08-30',description:'PAYMENT RECEIVED 000ICC999',amount:700000,category:'Transfers',type:'Transfer',review:true},
+  ...[['tie-a','Self BIL/INFT/AAA111/Self'],['tie-b','Self BIL/INFT/BBB222/Self'],['tie-nse','NACH trxn ACH/NSECLEARINGLTDNSEINV/X1']].map(([id,description])=>({id,statementId:bankSt,accountId:'hdfc',account:'HDFC Savings',date:'2026-08-30',description,amount:-700000,category:'Uncategorized',type:'Expense',review:true})));
+ assert.equal((await put(data)).status(),200);await page.goto(base+'/transactions');await page.locator('[data-action="pair-transfers"]').first().click();
+ const choice=page.locator('.pair-choice');await choice.waitFor();assert.equal(await choice.count(),1);assert.equal(await choice.locator('[data-choice]').count(),3,'two candidates plus Decide later');
+ assert.doesNotMatch(await choice.innerText(),/NSECLEARING/);assert.equal(await page.locator('#pair-confirm').isDisabled(),true);
+ await choice.locator('label').filter({hasText:'BBB222'}).locator('input').check();await page.locator('#pair-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});
+ tx=(await state()).state.transactions;const linked=id=>tx.find(t=>t.id===id).transferId;
+ assert.ok(linked('tie-b')&&linked('tie-b')===linked('tie-card'));assert.ok(!linked('tie-a')&&!linked('tie-nse'));
 
  // 8c. Recurring payments: three monthly Netflix charges become a series that links to its transactions.
  data=await state();const octId=data.state.statements.find(st=>st.name==='hdfc-oct.xlsx').id;
@@ -159,5 +169,5 @@ try{
  await page.goto(base+'/');await page.locator('.metrics').waitFor();assert.equal(await page.locator('.security-strip').count(),0,'reminder disappears once two-step verification is on');
 
  assert.deepEqual(problems,[]);
- console.log('PASS: transfer prompt after import, Overview transfer strip, Reports transfers net to zero, recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: picking between equal transfer matches, investments not offered, transfer prompt after import, Overview transfer strip, Reports transfers net to zero, recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}

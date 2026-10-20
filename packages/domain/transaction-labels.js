@@ -1,6 +1,8 @@
 import {titleRuleMatches} from './preferences.js';
 // Presentation only. Original narration, classification, amounts and duplicate keys never change.
-const merchants=[['Swiggy',/\bswiggy\b/i],['Zomato',/\bzomato\b/i],['Amazon',/\bamazon\b/i],['Flipkart',/\bflipkart\b/i],['Netflix',/\bnetflix\b/i],['Airtel',/\bairtel\b/i],['BigBasket',/\bbigbasket\b/i],['Blinkit',/\bblinkit\b/i],['Uber',/\buber\b/i],['IRCTC',/\birctc\b/i],['Zerodha',/\bzerodha\b/i]];
+// "Self BIL/INFT/…/Self", "UPI/…/SELF": money moved to your own account. A self cheque without a transfer channel is cash.
+export const isSelfTransfer=raw=>/(?:^|[\s/])self(?:[\s/.,]|$)/i.test(raw)&&/\b(?:inft|ift|neft|imps|rtgs|upi|bil|mmt|trf|transfer|fund)\b/i.test(raw);
+const merchants=[['NSE Clearing',/nse ?clearing/i],['BSE Clearing',/bse ?clearing/i],['Swiggy',/\bswiggy\b/i],['Zomato',/\bzomato\b/i],['Amazon',/\bamazon\b/i],['Flipkart',/\bflipkart\b/i],['Netflix',/\bnetflix\b/i],['Airtel',/\bairtel\b/i],['BigBasket',/\bbigbasket\b/i],['Blinkit',/\bblinkit\b/i],['Uber',/\buber\b/i],['IRCTC',/\birctc\b/i],['Zerodha',/\bzerodha\b/i]];
 const noise=/^(?:upi|up|p2a|p2m|dr|cr|inf|inft|neft(?:\s+(?:cr|dr))?|imps|rtgs|ach|nach|ecs|pos|ecom|chq|cheque|transfer|payment|purchase|txn|ref|refund|reversal|rev|return|failed|declined|na|null|sent|received|upi payment|[a-z]*\d[a-z\d .*-]*)$/i;
 const bank=/^(?:ICIC[I]?|HDFC|SBI[N]?|UTIB|AXIS|YESB|YES|BARB|KKBK|KOTAK|PUNB|PNB|CNRB|CANARA|BKID|BOI|INDB|INDUSIND|FDRL|FEDERAL|IDIB|IOBA|UBIN|UNION|IDFB|IDFC)(?:\s+BANK)?$/i;
 const tidy=s=>s.replace(/\s+/g,' ').trim();
@@ -32,7 +34,7 @@ export function transactionLabel(transaction,rules=[]){
  const reversal=/\b(?:reversal|reversed|rev)\b/i.test(raw),refund=/\brefund\b/i.test(raw),failed=/\b(?:failed|declined)\b/i.test(raw);
  const event=reversal?'Reversal':refund?'Refund':failed?'Failed transaction':'';
  let title='';
- if(/\b(?:self[\s/-]*transfer|own[\s/-]*account)\b/i.test(raw))title='Self transfer';
+ if(/\b(?:self[\s/-]*transfer|own[\s/-]*account)\b/i.test(raw)||isSelfTransfer(raw))title='Self transfer';
  else if(/\b(?:credit card payment|cc payment)\b/i.test(raw))title='Credit card payment';
  else if(transaction.type==='Transfer'&&transaction.amount>0&&/payment received|thank you for (?:the |your )?payment|netbanking transfer|bbps payment|autopay/i.test(raw))title='Card bill payment';
  else if(/wallet load|wallet top-?up|load(?:ed)? (?:to |money )?wallet/i.test(raw)){const merchant=merchants.find(([,pattern])=>pattern.test(raw))?.[0];title=merchant?merchant+' wallet top-up':'Wallet top-up';}

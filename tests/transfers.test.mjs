@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findTransferPairs,linkTransfer,unlinkTransfer,normalizeTransfers,linkCandidates,unpairedTransfers,transferIndex,partnerOf,transferSummary,pairsInvolving} from '../packages/domain/transfers.js';
+import {findTransferPairs,linkTransfer,unlinkTransfer,normalizeTransfers,linkCandidates,unpairedTransfers,transferIndex,partnerOf,transferSummary,pairsInvolving,suggestionsInvolving} from '../packages/domain/transfers.js';
+import {classify} from '../packages/domain/core.js';
+import {transactionLabel} from '../packages/domain/transaction-labels.js';
 import {validateLedger} from '../apps/api/dist/packages/domain/ledger-validation.js';
 
 const t=(id,accountId,date,amount,type='Transfer',description='TRANSFER')=>({id,accountId,date,amount,type,description,category:type==='Transfer'?'Transfers':'Shopping',review:true});
@@ -61,4 +63,31 @@ test('only pairs touching the just-imported rows are offered after an import',()
  const old=[t('o1','hdfc','2026-09-01',-1000),t('o2','sbi','2026-09-01',1000)],fresh=[t('n1','hdfc','2026-10-01',-2000),t('n2','card','2026-10-01',2000)];
  assert.deepEqual(pairsInvolving([...old,...fresh],['n2']).map(p=>[p.debit.id,p.credit.id]),[['n1','n2']]);
  assert.deepEqual(pairsInvolving(old,['n2']),[]);
+});
+test('a card payment pairs with the self transfer, not with same-day investment debits',()=>{
+ const card=t('card','amazon-card','2026-08-20',2000000,'Transfer','INFINITY PAYMENT RECEIVED, THANK YOU');
+ const nse=['n1','n2'].map(id=>t(id,'icici','2026-08-20',-2000000,'Expense','NACH trxn ACH/NSECLEARINGLTDNSEINV/ICIC702250626200 5403/769'));
+ const self=t('self','icici','2026-08-20',-2000000,'Expense','Self BIL/INFT/FHO9148004/Self');
+ const r=findTransferPairs([card,...nse,self]);
+ assert.deepEqual(ids(r),[['self','card']]);assert.deepEqual(r.choices,[]);assert.equal(r.ambiguous,0);
+});
+test('investment debits only match an Investment account you track',()=>{
+ const sip=t('sip','icici','2026-09-01',-500000,'Expense','NACH/NSECLEARINGLTD/SIP'),broker=t('broker','zerodha','2026-09-01',500000,'Transfer','FUNDS ADDED');
+ assert.deepEqual(ids(findTransferPairs([sip,broker])),[]);
+ assert.deepEqual(ids(findTransferPairs([sip,broker],{accounts:[{id:'zerodha',type:'Investment'}]})),[['sip','broker']]);
+});
+test('equally likely matches come back as choices, best and closest first',()=>{
+ const card=t('card','card','2026-08-30',700000,'Transfer','PAYMENT RECEIVED');
+ const a=t('a','hdfc','2026-08-30',-700000,'Expense','Self BIL/INFT/AAA111/Self'),b=t('b','sbi','2026-08-30',-700000,'Expense','Self BIL/INFT/BBB222/Self'),late=t('late','hdfc','2026-09-01',-700000,'Transfer','TRANSFER');
+ const r=findTransferPairs([card,a,b,late]);
+ assert.deepEqual(ids(r),[]);assert.equal(r.choices.length,1);assert.equal(r.choices[0].anchor.id,'card');
+ assert.deepEqual(r.choices[0].options.map(o=>o.other.id),['a','b','late']);assert.deepEqual(r.choices[0].options.map(o=>[o.debit.id,o.credit.id]),[['a','card'],['b','card'],['late','card']]);
+ assert.deepEqual(suggestionsInvolving([card,a,b,late],['b']).choices.length,1);assert.deepEqual(suggestionsInvolving([card,a,b,late],['zzz']),{pairs:[],choices:[]});
+});
+test('self transfers and NSE Clearing debits are classified and named',()=>{
+ assert.deepEqual([classify('Self BIL/INFT/FHO9148004/Self',-2000000).type,classify('Self BIL/INFT/FHO9148004/Self',-2000000).category],['Transfer','Transfers']);
+ assert.deepEqual([classify('UPI/DR/123456789012/SELF/HDFC',-100).type,classify('NACH trxn ACH/NSECLEARINGLTDNSEINV/X',-2000000).category],['Transfer','Investments']);
+ assert.equal(classify('CHQ PAID SELF',-500000).type,'Expense','a self cheque without a transfer channel is cash, not a transfer');
+ assert.equal(transactionLabel({description:'Self BIL/INFT/FHO9148004/Self',amount:-2000000}).title,'Self transfer');
+ assert.equal(transactionLabel({description:'NACH trxn ACH/NSECLEARINGLTDNSEINV/X',amount:-2000000}).title,'NSE Clearing');
 });
