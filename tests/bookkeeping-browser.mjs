@@ -106,10 +106,13 @@ try{
  await page.locator('nav [data-page="transactions"]').click();await page.locator('#search').fill('RELIANCE');assert.match(await page.locator('#transaction-results tbody tr').first().innerText(),/EMI 3 of 12/);await page.locator('#search').fill('');
 
  // 8b. Transfers: the bank debit for the card bill pairs with the card's payment, can be unlinked and relinked by hand.
- await importFile({name:'hdfc-aug.csv',mimeType:'text/csv',buffer:Buffer.from('Date,Narration,Debit,Credit\n28/08/2026,CC 000XXXX9876 AUTOPAY HDFC CREDIT CARD,"5,000.00",\n')});await page.locator('#map-next').click();await page.locator('#commit-import').click();await page.locator('#modal').waitFor({state:'hidden'});
- await page.locator('nav [data-page="transactions"]').click();await page.locator('[data-action="pair-transfers"]').first().click();
- const pair=page.locator('.pair-row');assert.equal(await pair.count(),1);assert.match(await pair.innerText(),/HDFC Savings → HDFC Credit Card[\s\S]*Same day/);
- await page.locator('#pair-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});
+ await importFile({name:'hdfc-aug.csv',mimeType:'text/csv',buffer:Buffer.from('Date,Narration,Debit,Credit\n28/08/2026,CC 000XXXX9876 AUTOPAY HDFC CREDIT CARD,"5,000.00",\n')});await page.locator('#map-next').click();await page.locator('#commit-import').click();
+ // Importing the second leg offers the link straight away; postponing it leaves a reminder on Overview.
+ const pair=page.locator('.pair-row');await pair.first().waitFor();assert.match(await page.locator('#modal h2').innerText(),/Transfers found in this import/);
+ assert.equal(await pair.count(),1);assert.match(await pair.innerText(),/HDFC Savings → HDFC Credit Card[\s\S]*Same day/);
+ await page.getByRole('button',{name:'Cancel'}).click();const strip=page.locator('.transfer-strip');await strip.waitFor();assert.match(await strip.innerText(),/1 transfer between your accounts can be linked/);
+ await strip.locator('[data-action="pair-transfers"]').click();await page.locator('#pair-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});await strip.waitFor({state:'detached'});
+ await page.locator('nav [data-page="transactions"]').click();await page.locator('#transaction-results tbody tr').first().waitFor();
  let tx=(await state()).state.transactions;const bankLeg=tx.find(t=>t.description.startsWith('CC 000XXXX9876')),cardLeg=tx.find(t=>t.description.startsWith('NETBANKING TRANSFER'));
  assert.ok(bankLeg.transferId&&bankLeg.transferId===cardLeg.transferId);assert.deepEqual([bankLeg.type,cardLeg.type,bankLeg.review,cardLeg.review],['Transfer','Transfer',false,false]);
  assert.match(await page.locator(`[data-transaction="${bankLeg.id}"]`).innerText(),/Transfer to HDFC Credit Card/);assert.match(await page.locator(`[data-transaction="${cardLeg.id}"]`).innerText(),/Transfer from HDFC Savings/);
@@ -119,6 +122,8 @@ try{
  await page.locator(`[data-edit="${cardLeg.id}"]`).click();await page.getByLabel('Linked transfer').selectOption(bankLeg.id);await page.getByRole('button',{name:'Save changes'}).click();await page.locator('#inline-transaction-form').waitFor({state:'detached'});
  tx=(await state()).state.transactions;assert.ok(tx.find(t=>t.id===bankLeg.id).transferId===tx.find(t=>t.id===cardLeg.id).transferId);
  await page.locator('#type-filter').selectOption('all');
+ await page.goto(base+'/reports?period=fy-2026');const transfers=page.locator('.transfers-card');await transfers.waitFor();
+ assert.match(await transfers.innerText(),/Linked transfers out · 1 pair\s+−₹5,000\.00[\s\S]*Linked transfers in\s+\+₹5,000\.00[\s\S]*Net\s+₹0\.00/);
 
  // 8c. Recurring payments: three monthly Netflix charges become a series that links to its transactions.
  data=await state();const octId=data.state.statements.find(st=>st.name==='hdfc-oct.xlsx').id;
@@ -154,5 +159,5 @@ try{
  await page.goto(base+'/');await page.locator('.metrics').waitFor();assert.equal(await page.locator('.security-strip').count(),0,'reminder disappears once two-step verification is on');
 
  assert.deepEqual(problems,[]);
- console.log('PASS: recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: transfer prompt after import, Overview transfer strip, Reports transfers net to zero, recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}

@@ -64,3 +64,5 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 .card-head+.filters{padding-top:16px}
 /* Eight workspace pages: one scrollable row on phones instead of wrapping into two rows. */
 @media(max-width:580px){nav{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(62px,1fr);overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}nav::-webkit-scrollbar{display:none}nav a{scroll-snap-align:start}nav a span{white-space:nowrap}}
+.transfer-strip{background:#eef4f1;border-color:#d5e5dc;color:#456a5a}.transfer-strip b{color:#2f5244}.transfer-strip p{color:#5d7d70}.transfer-strip .review-icon{background:#dceae2}.transfers-card{margin-top:22px}
+:root[data-theme=dark] .transfer-strip{background:#15241e;border-color:#25392f;color:#a8cbb9}:root[data-theme=dark] .transfer-strip b{color:#d6ece0}:root[data-theme=dark] .transfer-strip p{color:#9ab9a9}

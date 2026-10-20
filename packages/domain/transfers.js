@@ -39,3 +39,11 @@ export function findTransferPairs(transactions,{maxDays=3}={}){
  return {pairs:pairs.sort((a,b)=>a.debit.date.localeCompare(b.debit.date)),ambiguous};
 }
 export function unpairedTransfers(transactions){return transactions.filter(t=>t.type==='Transfer'&&t.category==='Transfers'&&!t.transferId);}
+// Money moved between your own accounts: linked legs cancel out (net 0 when both legs are in view).
+export function transferSummary(transactions){
+ const s={linkedOut:0,linkedIn:0,linkedPairs:0,unlinkedOut:0,unlinkedIn:0,unlinked:0};
+ for(const t of transactions)if(t.type==='Transfer'){if(t.transferId){if(t.amount<0)s.linkedOut-=t.amount;else{s.linkedIn+=t.amount;s.linkedPairs++;}}else if(t.category==='Transfers'){s.unlinked++;if(t.amount<0)s.unlinkedOut-=t.amount;else s.unlinkedIn+=t.amount;}}
+ return {...s,net:s.linkedIn-s.linkedOut};
+}
+// Proposed pairs that involve at least one of the given transaction ids (for example, rows just imported).
+export function pairsInvolving(transactions,ids){const set=new Set(ids);return findTransferPairs(transactions).pairs.filter(p=>set.has(p.debit.id)||set.has(p.credit.id));}

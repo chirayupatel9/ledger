@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {findTransferPairs,linkTransfer,unlinkTransfer,normalizeTransfers,linkCandidates,unpairedTransfers,transferIndex,partnerOf} from '../packages/domain/transfers.js';
+import {findTransferPairs,linkTransfer,unlinkTransfer,normalizeTransfers,linkCandidates,unpairedTransfers,transferIndex,partnerOf,transferSummary,pairsInvolving} from '../packages/domain/transfers.js';
 import {validateLedger} from '../apps/api/dist/packages/domain/ledger-validation.js';
 
 const t=(id,accountId,date,amount,type='Transfer',description='TRANSFER')=>({id,accountId,date,amount,type,description,category:type==='Transfer'?'Transfers':'Shopping',review:true});
@@ -50,4 +50,15 @@ test('server keeps valid links, drops broken ones, and rejects malformed ids',()
  const removed=ledger();removed.transactions.pop();removed.statements.pop();assert.equal(validateLedger(removed).transactions[0].transferId,undefined);
  const retyped=ledger();retyped.transactions[1].type='Income';assert.ok(validateLedger(retyped).transactions.every(x=>!x.transferId));
  const bad=ledger();bad.transactions[0].transferId='not valid!';assert.throws(()=>validateLedger(bad));
+});
+test('linked transfers net to zero; unlinked transfers are counted separately',()=>{
+ const tx=[t('a','hdfc','2026-10-01',-500000),t('b','card','2026-10-01',500000),t('c','sbi','2026-10-03',-20000),t('d','hdfc','2026-10-04',-9900,'Expense')];
+ linkTransfer(tx,tx[0],tx[1],'L');
+ assert.deepEqual(transferSummary(tx),{linkedOut:500000,linkedIn:500000,linkedPairs:1,unlinkedOut:20000,unlinkedIn:0,unlinked:1,net:0});
+ assert.equal(transferSummary([tx[0]]).net,-500000,'one leg alone does not net to zero');
+});
+test('only pairs touching the just-imported rows are offered after an import',()=>{
+ const old=[t('o1','hdfc','2026-09-01',-1000),t('o2','sbi','2026-09-01',1000)],fresh=[t('n1','hdfc','2026-10-01',-2000),t('n2','card','2026-10-01',2000)];
+ assert.deepEqual(pairsInvolving([...old,...fresh],['n2']).map(p=>[p.debit.id,p.credit.id]),[['n1','n2']]);
+ assert.deepEqual(pairsInvolving(old,['n2']),[]);
 });
