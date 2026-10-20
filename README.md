@@ -170,6 +170,15 @@ The `monitor` service checks every `MONITOR_INTERVAL_MINUTES` (default 5) and se
 
 Messages name the failing check only. Install the ntfy app and subscribe to the topic in `NTFY_URL` in `.env` (the topic name is the only secret; keep it private). Send a test with `sudo docker compose exec monitor node /monitor/monitor.mjs test`. A machine that loses power or network cannot report itself; that needs a check from another machine.
 
+## Investments (SIPs and mutual funds)
+
+The **Investments** page (`/investments`) brings together two sources (`packages/domain/investments.js`):
+
+- **Fund reports** imported into an account of type Investment (the SIP or mutual fund transaction report from a distributor, CAMS or KFintech). Each fund shows money invested (with stamp duty), redemptions, units, average NAV and value at the latest NAV in the reports. Units and value count only the imported transactions, so import reports from the first purchase for complete holdings; a fund whose report redeems more units than it bought shows no value.
+- **Bank debits** categorised as Investments (SIPs through NSE Clearing, ICCL, BSE or a fund house). The same payee and amount about a month apart is listed as a SIP.
+
+A bank debit linked to a fund purchase is counted once. SIPs show their day of the month, instalments and next due date; a SIP is flagged as missed or stopped only when the imported reports or statements reach past its due date. The page also shows invested this financial year (IST), monthly totals for the last 12 months and which bank payments are not yet matched to a fund report.
+
 ## Statements that cannot be read
 
 When an import fails, Ledger emails `IMPORT_ALERT_EMAIL` (set in `.env`; currently the owner's Gmail) so the parser can be extended. It reports:

@@ -1,4 +1,4 @@
-export const sections=['overview','accounts','transactions','statements','categories','reports','settings','titles'];
+export const sections=['overview','accounts','investments','transactions','statements','categories','reports','settings','titles'];
 export function readWorkspaceLocation(pathname,search=''){
  const section=pathname.replace(/^\//,'');
  const query=new URLSearchParams(search);
@@ -13,7 +13,7 @@ export function workspaceURL(page,account='all',period='all'){
 }
 // Only known workspace paths and filter parameters can be login destinations.
 export function safeReturnTo(value){
- if(typeof value!=='string'||!/^\/(?:accounts|transactions|statements|categories|reports|settings|titles)?(?:\?|$)/.test(value))return '/';
+ if(typeof value!=='string'||!/^\/(?:accounts|investments|transactions|statements|categories|reports|settings|titles)?(?:\?|$)/.test(value))return '/';
  const url=new URL(value,'https://ledger.invalid');
  if(url.origin!=='https://ledger.invalid')return '/';
  const route=readWorkspaceLocation(url.pathname,url.search);

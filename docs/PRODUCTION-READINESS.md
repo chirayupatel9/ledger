@@ -45,7 +45,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 | No two-step verification | Bank statements behind a single password on the public Internet. | Done (TOTP + backup codes, opt-in at `/security`) |
 | Content-Security-Policy has no `script-src`/`connect-src` | An injected script could exfiltrate financial data to another origin. | Done |
 | Test logins left in production DB (`*@example.test`) | Verified accounts nobody owns. | Done (3 accounts removed after a verified backup) |
-| Password reset needs email | Owner can only be reset by the operator. | Gmail SMTP chosen; waiting for an app password and a login address that receives mail. Signup stays closed when email is on. |
+| Password reset needs email | Owner can only be reset by the operator. | Done (Gmail SMTP; owner login moved to a Gmail address; sign-up is invite-only; Google sign-in links to the same verified address) |
 | No uptime/disk/backup alerting | Failures go unnoticed. | Done (ntfy push alerts for site, backups, drive copy, disk space; host power loss still needs an outside check) |
 | Ledger stored as one JSON document per user | Every edit rewrites the whole ledger; fine for one user, not for many large ledgers. | Later (normalise into tables before public signup) |
 | Account deletion, privacy notice, consent (DPDP Act 2023) | Required before accepting other users. | Needs decision (public launch) |
@@ -60,7 +60,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 ## Decisions still needed from the owner
 
 1. **Offsite backups** (skipped for now): a destination away from this building (e.g. Backblaze B2, S3, Google Drive via rclone). Dumps are on the system disk and, encrypted, on the attached USB drive.
-2. **Email delivery**: Gmail chosen. Add an app password to `.env` and move your login to an address that receives mail.
+2. **Email delivery**: done (Gmail SMTP, branded emails, owner login on Gmail).
 3. **Product direction**: personal books only, or business books too (GST, invoices, double-entry, Tally XML export).
 4. **Public signup**: requires normalising the ledger into tables, account deletion, a privacy notice and consent flow (DPDP Act duties apply to hosted services from 13 May 2027).
 5. **Old ChatGPT Sites copy** (`ledger-money-desk.chiiirayu.chatgpt.site`): take it down.
