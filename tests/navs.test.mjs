@@ -82,6 +82,14 @@ test('the server answers for each scheme in your ledger, honouring the scheme yo
  assert.deepEqual(chosen.map(x=>[x.match?.code??null,x.source]),[[null,'none'],[101762,'chosen']]);
  assert.equal(navsForLedger(ledger([{scheme:'HDFC Flexi Cap Fund - Growth',code:1}]),index)[1].source,'missing');
  assert.deepEqual(parseFundRow({description:'Purchase · X Fund - Growth · ISIN inf179k01608 · Folio 1 · 1 units @ ₹10'}).isin,'INF179K01608');
+ // A CAS on top of a distributor report: rows with and without the ISIN, under one scheme name and folio.
+ const cas='HDFC Flexi Cap Fund - Growth',mixed=ledger();
+ mixed.transactions.push({...buy('2026-02-10',cas,'25.0','1950',4875000),description:`SIP Purchase · ${cas} · ISIN INF179K01608 · Folio 111/01 · 25.0 units @ ₹1950`},
+  {...buy('2026-02-10',cas,'1','1',-100),description:`Stamp duty · ${cas} · ISIN INF179K01608 · Folio 111/01`,category:'Taxes',type:'Expense'});
+ assert.deepEqual(fundSchemes(mixed).map(f=>[f.scheme,f.isin]),[['Parag Parikh Flexi Cap Fund - Direct Plan - Growth',''],[cas,'INF179K01608']],'one ISIN covers the scheme');
+ const [,hdfc]=navsForLedger(mixed,index);assert.deepEqual([hdfc.match.code,hdfc.source],[101762,'isin']);
+ const fund=summarizeInvestments(mixed,{today:'2026-10-20',navs:{[cas.toLowerCase()]:{...hdfc.match}}}).funds.find(f=>f.scheme===cas);
+ assert.deepEqual([fund.count,fund.units,fund.stamp,fund.current.nav],[2,500000,100,1961.801],'both rows and the stamp duty stay one fund');
 });
 
 test('XIRR matches known spreadsheet results',()=>{
