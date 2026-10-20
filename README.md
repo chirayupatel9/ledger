@@ -8,13 +8,15 @@ This is the Docker edition of Ledger. It uses **Next.js / React**, a separate **
 - Login: `chirayu@ledger.chirayupatel.dev`
 - Generated password: `.secrets/owner-login.json` (mode 0600, excluded from Git and Docker builds).
 - After signing in, use **Your account & data → Change password**. Changing a password revokes other sessions.
-- Google login, public signup, and email recovery are disabled. `MAIL_DELIVERY_ENABLED=false` prevents outbound mail and disables email-dependent authentication endpoints. The account was explicitly provisioned and verified by the operator; verification requirements remain in place for other accounts.
+- Sign-up is invite-only (`SIGNUP_MODE=invite`): only addresses the owner adds under **Settings → Invitations** can create an account, by email or Google. See [Sign-up and invitations](#sign-up-and-invitations).
+- Email (verification, password reset, invitations) is sent through Gmail SMTP. Google sign-in is configured.
+- The owner account was provisioned and verified by the operator; verification requirements remain in place for other accounts.
 
 The existing host Cloudflare Tunnel routes this hostname to `http://127.0.0.1:5800`. Public traffic uses Cloudflare-managed HTTPS and an encrypted tunnel; the final HTTP hop stays on the same host. HTTP redirects to HTTPS and HSTS is enabled. The database/API/web ports remain private. The `drop` and `files` tunnel routes are preserved.
 
 Use `sudo docker compose up -d --build` for updates on this host. **Do not use `deploy/compose.production.yaml` here**: that optional configuration is for direct Internet hosting without the tunnel. The tunnel route lives in `/etc/cloudflared/config.yml` with a pre-change backup at `/etc/cloudflared/config.before-ledger.yml`. Caddy trusts the current Docker gateway `172.18.0.1` for the Cloudflare client-IP header; update that explicit address if the Docker subnet changes. Do not expose the loopback origin port directly to the Internet.
 
-To enable email later, configure a real SMTP sender, set `MAIL_DELIVERY_ENABLED=true`, and recreate the API container. Verify delivery before inviting signups. Google remains optional and disabled without its credentials. The local Mailpit container is stopped.
+Email settings are described under [Email](#email-password-reset). Google sign-in is optional and disabled without its credentials. The local Mailpit container is stopped.
 
 ## Local development on a separate checkout
 
@@ -51,6 +53,20 @@ The UI preserves the existing browser-based finance renderer inside React. New p
 5. Verify real email signup/recovery, Google login with two accounts, per-user isolation, and HTTPS cookies before inviting users.
 
 The existing `chatgpt.site` URL cannot host these Docker containers. Use this machine's localhost URL now and your own domain for public hosting.
+
+## Sign-up and invitations
+
+`SIGNUP_MODE` in `.env` decides who can create an account (recreate the API container after changing it):
+
+| Mode | Who can create an account |
+| --- | --- |
+| `closed` (default) | Nobody. Accounts are created by the operator with `apps/api/src/create-account.ts`. |
+| `invite` | Only email addresses on the invitation list, by email/password or Google. |
+| `open` | Anyone. Not recommended until the items in `docs/PRODUCTION-READINESS.md` are done. |
+
+The workspace owner (the first verified account, recorded in `workspace_owners`) manages the list under **Settings → Invitations**. Adding an address emails an invitation with a sign-up link (when email is on). Each invited person gets a separate, empty ledger and cannot see anyone else's. Removing an invitation stops a pending sign-up; it does not delete an account that already exists. The rule is checked when the account is created, so the sign-up form, the API and Google sign-in all obey it. Email/password sign-up also needs email delivery, because the address must be verified.
+
+Google sign-in notes: it does not ask for Ledger's two-step verification code (the Google account's own security applies). Automatic linking is off, so an account created with a password cannot sign in with Google, and the reverse.
 
 ## Operations and backups
 
@@ -153,9 +169,22 @@ The `monitor` service checks every `MONITOR_INTERVAL_MINUTES` (default 5) and se
 
 Messages name the failing check only. Install the ntfy app and subscribe to the topic in `NTFY_URL` in `.env` (the topic name is the only secret; keep it private). Send a test with `sudo docker compose exec monitor node /monitor/monitor.mjs test`. A machine that loses power or network cannot report itself; that needs a check from another machine.
 
+## Statements that cannot be read
+
+When an import fails, Ledger emails `IMPORT_ALERT_EMAIL` (set in `.env`; currently the owner's Gmail) so the parser can be extended. It reports:
+
+- a file that could not be read (for example, a CSV or spreadsheet without a transaction table, or a damaged PDF);
+- a PDF that yields no transactions, or a mapped CSV/Excel file that yields none;
+- a statement where some rows could not be read and were left out;
+- a file type Ledger does not open (for example `.ofx`).
+
+The email describes the file only: its name, type, page count and size, the bank it appears to be from (the bank named first on a PDF's first page), the bank account it was imported into, the column names found, the parser's error and notes, how many rows were read, and who imported it and when. The statement is not attached and nothing from its rows is included; failed files are never saved. Share the original file to have the parser updated. A wrong or missing PDF password and the 150-page limit are not reported.
+
+Each file is reported once per kind of failure (re-reported after 7 days if it still fails), with at most 20 reports per person per day. The person importing sees that the administrator was told. Leave `IMPORT_ALERT_EMAIL` empty to turn reports off; they also need email delivery on. Reports from test accounts at reserved domains (`.test`) are recorded but never sent.
+
 ## Email (password reset)
 
-Email is off until SMTP credentials are set. Sending email does not open public signup: that also needs `SIGNUP_ENABLED=true`. For Gmail, create an app password (Google Account → Security → 2-Step Verification → App passwords), then set in `.env`:
+Email is off until SMTP credentials are set. Sending email does not open sign-up: that is set by `SIGNUP_MODE` (see below). For Gmail, create an app password (Google Account → Security → 2-Step Verification → App passwords), then set in `.env`:
 
 ```
 MAIL_DELIVERY_ENABLED=true

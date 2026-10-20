@@ -8,10 +8,10 @@ import { auth } from './auth.js';
 import { config } from './config.js';
 import { LedgerService } from './ledger.js';
 import { SessionGuard, Errors } from './security.js';
-import { LedgerController, PublicController } from './controllers.js';
+import { LedgerController, PublicController, InvitesController, ImportFailuresController } from './controllers.js';
 import { pool } from './database.js';
 import { startMailer } from './mail.js';
-@Module({controllers:[PublicController,LedgerController],providers:[LedgerService,SessionGuard]})
+@Module({controllers:[PublicController,LedgerController,InvitesController,ImportFailuresController],providers:[LedgerService,SessionGuard]})
 class AppModule{}
 const app=await NestFactory.create(AppModule,{bodyParser:false,logger:['error','warn','log']});
 app.use(helmet({contentSecurityPolicy:false,strictTransportSecurity:config.local?false:undefined}));

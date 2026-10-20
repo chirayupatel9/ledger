@@ -1,12 +1,9 @@
-import {headers} from 'next/headers';
+import {currentSession} from './session';
 import {redirect} from 'next/navigation';
 import Workspace from './workspace';
 import {safeReturnTo} from '../public/workspace-routing.js';
 export default async function WorkspacePage({returnTo='/'}:{returnTo?:string}){
- const h=await headers();
- const r=await fetch((process.env.API_INTERNAL_URL||'http://api:3001')+'/api/auth/get-session',{headers:{cookie:h.get('cookie')||''},cache:'no-store'});
- if(!r.ok)throw new Error('Authentication service unavailable');
- const session=await r.json();
+ const session=await currentSession();
  if(!session?.user?.emailVerified)redirect('/login?next='+encodeURIComponent(safeReturnTo(returnTo)));
  return <Workspace/>;
 }

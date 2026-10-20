@@ -11,6 +11,8 @@ x-api: &api
     AUTH_SECRET: ${AUTH_SECRET:?Authentication secret required}
     MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-true}
     SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
+    SIGNUP_MODE: ${SIGNUP_MODE:-}
+    IMPORT_ALERT_EMAIL: ${IMPORT_ALERT_EMAIL:-}
     SMTP_HOST: ${SMTP_HOST:?SMTP host required}
     SMTP_PORT: ${SMTP_PORT:-587}
     SMTP_SECURE: ${SMTP_SECURE:-false}

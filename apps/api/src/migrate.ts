@@ -29,5 +29,20 @@ try {
   await client.query(`ALTER TABLE ledgers ALTER COLUMN state SET DEFAULT '{"schemaVersion":2,"accounts":[],"transactions":[],"statements":[],"rules":[],"initialized":false}'::jsonb`);
   await client.query('INSERT INTO ledger_migrations(version) VALUES(2)');
  }
+ const invitesMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=3');
+ if(!invitesMigration.rowCount){await client.query(`
+ CREATE TABLE signup_invites(email text PRIMARY KEY CHECK(email=lower(email)),invited_by text REFERENCES "user"(id) ON DELETE CASCADE,created_at timestamptz NOT NULL DEFAULT now(),accepted_at timestamptz);
+ CREATE TABLE workspace_owners(user_id text PRIMARY KEY REFERENCES "user"(id) ON DELETE CASCADE,created_at timestamptz NOT NULL DEFAULT now());
+ INSERT INTO workspace_owners(user_id) SELECT id FROM "user" WHERE "emailVerified" ORDER BY "createdAt" LIMIT 1;
+ ALTER TABLE mail_outbox ADD COLUMN suppressed boolean NOT NULL DEFAULT false;
+ INSERT INTO ledger_migrations(version) VALUES(3);
+ `);}
+ // Statements that could not be read: kept only to send one report per file and cap reports per person.
+ const importFailuresMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=4');
+ if(!importFailuresMigration.rowCount){await client.query(`
+ CREATE TABLE import_failures(id bigserial PRIMARY KEY,user_id text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,file_hash text NOT NULL,kind text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ CREATE INDEX import_failures_recent ON import_failures(user_id,file_hash,created_at);
+ INSERT INTO ledger_migrations(version) VALUES(4);
+ `);}
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

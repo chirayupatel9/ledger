@@ -72,3 +72,5 @@ nav a{text-decoration:none}.account-shortcut{display:flex;align-items:center;jus
 .hidden-category{opacity:.6}.category-form{padding:14px 22px 18px;background:#f5f8f1;border-top:1px solid var(--border)}.category-form .field{margin:4px 0}.color-input{height:40px;padding:4px;width:100%;cursor:pointer}
 :root[data-theme=dark] .category-form{background:#1b2823}:root[data-theme=dark] .category-row{border-color:#22302a}
 @media(max-width:650px){.category-row{flex-wrap:wrap;padding:12px 14px}.category-row .bank-actions{width:100%}.category-form{padding:12px 14px}}
+.invite-form{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.invite-form .input{flex:1;min-width:220px}.invite-form .btn{margin:0}.invite-list{margin-top:6px}.invite-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--border);font-size:.75rem}.invite-row>div{flex:1;min-width:0}.invite-row b{overflow-wrap:anywhere}.invite-row .btn{margin:0}
+:root[data-theme=dark] .invite-row{border-color:#22302a}
