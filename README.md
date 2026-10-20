@@ -11,6 +11,7 @@ This is the Docker edition of Ledger. It uses **Next.js / React**, a separate **
 - Sign-up is invite-only (`SIGNUP_MODE=invite`): only addresses the owner adds under **Settings → Invitations** can create an account, by email or Google. See [Sign-up and invitations](#sign-up-and-invitations).
 - Email (verification, password reset, invitations) is sent through Gmail SMTP. Google sign-in is configured.
 - The owner account was provisioned and verified by the operator; verification requirements remain in place for other accounts.
+- Everything runs on Indian Standard Time (`Asia/Kolkata`): every container and the database (`TZ`, PostgreSQL `timezone`), backup file names (e.g. `scheduled-2026-10-21T02-30-00+0530.dump`), logs, and the app itself, which uses IST for "today", the current financial year and every timestamp whatever the device's time zone. Timestamps are stored with their time zone, so nothing stored changes.
 
 The existing host Cloudflare Tunnel routes this hostname to `http://127.0.0.1:5800`. Public traffic uses Cloudflare-managed HTTPS and an encrypted tunnel; the final HTTP hop stays on the same host. HTTP redirects to HTTPS and HSTS is enabled. The database/API/web ports remain private. The `drop` and `files` tunnel routes are preserved.
 
@@ -183,6 +184,8 @@ The email describes the file only: its name, type, page count and size, the bank
 Each file is reported once per kind of failure (re-reported after 7 days if it still fails), with at most 20 reports per person per day. The person importing sees that the administrator was told. Leave `IMPORT_ALERT_EMAIL` empty to turn reports off; they also need email delivery on. Reports from test accounts at reserved domains (`.test`) are recorded but never sent.
 
 ## Email (password reset)
+
+Every email (invitation, email verification, password reset, unreadable-statement report) uses one branded layout from `packages/domain/emails.js`: an HTML version styled like the sign-in page, plus a plain-text version for mail apps that prefer it.
 
 Email is off until SMTP credentials are set. Sending email does not open sign-up: that is set by `SIGNUP_MODE` (see below). For Gmail, create an app password (Google Account → Security → 2-Step Verification → App passwords), then set in `.env`:
 

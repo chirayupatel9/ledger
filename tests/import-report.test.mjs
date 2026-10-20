@@ -18,7 +18,8 @@ test('import failure reports are validated and trimmed on the server',()=>{
 
 test('the operator email describes the statement without its contents',()=>{
  const r=cleanImportReport({kind:'empty',fileHash:hash,fileName:'OpTransactionHistory.pdf',fileType:'PDF',fileSize:184320,pages:3,issuer:'ICICI Bank',accountName:'ICICI Savings',accountType:'Savings',message:'No transactions could be read from this PDF.',warnings:['No dated rows found. This may be a scanned PDF or an unsupported date layout.']});
- const {subject,body}=importReportEmail(r,{reporter:{name:'Chirayu',email:'me@example.com'},when:new Date('2026-10-20T14:45:00Z')});
+ const {subject,text:body,html}=importReportEmail(r,{reporter:{name:'Chirayu',email:'me@example.com'},when:new Date('2026-10-20T14:45:00Z'),origin:'https://ledger.example.com'});
+ assert.match(html,/No transactions found in a statement/);assert.match(html,/ICICI Savings \(Savings\)/);assert.match(html,/Chirayu &lt;me@example\.com&gt;/);
  assert.equal(subject,'Ledger found no transactions in a statement: ICICI Bank PDF');
  assert.match(body,/^What happened: No transactions could be read from this PDF\.$/m);
  assert.match(body,/^Parser note: No dated rows found/m);
@@ -28,10 +29,10 @@ test('the operator email describes the statement without its contents',()=>{
  assert.match(body,/not attached and was not saved/);assert.doesNotMatch(body,/Rows:|Columns found:/);
  const csv=importReportEmail(cleanImportReport({kind:'partial',fileHash:hash,fileName:'hdfc.csv',fileType:'CSV',fileSize:900,headers:['Date','Narration','Withdrawal Amt.'],extracted:12,invalid:3}));
  assert.equal(csv.subject,'Ledger only partly read a statement: CSV statement');
- assert.match(csv.body,/^Rows: 12 read, 3 could not be read$/m);assert.match(csv.body,/^Columns found: Date · Narration · Withdrawal Amt\.$/m);
- assert.match(csv.body,/^What happened: Some rows could not be read and were left out\.$/m);
+ assert.match(csv.text,/^Rows: 12 read, 3 could not be read$/m);assert.match(csv.text,/^Columns found: Date · Narration · Withdrawal Amt\.$/m);
+ assert.match(csv.text,/^What happened: Some rows could not be read and were left out\.$/m);
  const other=importReportEmail(cleanImportReport({kind:'unsupported',fileHash:hash,fileName:'export.OFX',fileType:'Other',fileSize:2048}));
- assert.equal(other.subject,'Ledger could not open a statement file: .ofx file');assert.match(other.body,/^File: export\.OFX \(\.ofx file, 2 KB\)$/m);
+ assert.equal(other.subject,'Ledger could not open a statement file: .ofx file');assert.match(other.text,/^File: export\.OFX \(\.ofx file, 2 KB\)$/m);
 });
 
 test('the issuing bank is the one named first on the first page',()=>{

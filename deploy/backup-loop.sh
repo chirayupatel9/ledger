@@ -30,7 +30,7 @@ if [ "${1:-}" = check ]; then
 fi
 
 dump() {
-  stamp=$(date -u +%Y-%m-%dT%H-%M-%SZ)
+  stamp=$(date +%Y-%m-%dT%H-%M-%S%z)  # Indian Standard Time, e.g. 2026-10-21T02-30-00+0530
   partial="$local_dir/.scheduled-$stamp.partial"
   if pg_dump -Fc -f "$partial" && pg_restore --list "$partial" >/dev/null; then
     mv "$partial" "$local_dir/scheduled-$stamp.dump"

@@ -6,6 +6,8 @@ export function applyAppearance(input){
  const p=preferencesFor(input),root=document.documentElement;
  root.style.fontSize=p.fontSize+'px';
  root.dataset.theme=p.theme==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):p.theme;
+ // Remembered on this device so the next loading screen opens in the same theme (loading.js).
+ try{localStorage.setItem('ledger.theme',root.dataset.theme)}catch{}
  root.dataset.font=p.fontFamily;root.dataset.density=p.density;
  root.dataset.showBalances=String(p.showBalances);root.dataset.showLabelSource=String(p.showLabelSource);
 }

@@ -1,5 +1,6 @@
 import { Controller, Get, Put, Post, Delete, Req, Res, Param, Body, UseGuards, UseInterceptors, UploadedFile, HttpException } from '@nestjs/common';
-import { enqueueMail, enqueueText, reservedAddress } from './mail.js';
+import { enqueueEmail, reservedAddress } from './mail.js';
+import { invitationEmail } from '../../../packages/domain/emails.js';
 import { cleanImportReport, importReportEmail } from '../../../packages/domain/import-report.js';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -46,7 +47,7 @@ export class InvitesController{
   if((await pool.query('SELECT 1 FROM "user" WHERE lower(email)=$1',[email])).rowCount)throw new HttpException('That email address already has an account.',409);
   const {rowCount}=await pool.query('INSERT INTO signup_invites(email,invited_by) VALUES($1,$2) ON CONFLICT DO NOTHING',[email,req.user.id]);
   const emailed=!!rowCount&&config.mailEnabled&&config.signupEnabled;
-  if(emailed)await enqueueMail(email,'You are invited to Ledger',`${config.origin}/signup?email=${encodeURIComponent(email)}`,`${req.user.name||'Someone'} invited you to Ledger, a private workspace for your bank statements and bookkeeping. Create your account with this email address; your ledger is separate and private to you.`);
+  if(emailed)await enqueueEmail(email,invitationEmail({url:`${config.origin}/signup?email=${encodeURIComponent(email)}`,email,inviter:req.user.name,google:!!(config.googleId&&config.googleSecret),origin:config.origin}));
   return {...await this.list(),emailed};
  }
  @Delete(':email') async remove(@Req() req:UserRequest,@Param('email') email:string){await this.owner(req);await pool.query('DELETE FROM signup_invites WHERE email=$1',[String(email).toLowerCase()]);return this.list();}
@@ -62,9 +63,9 @@ export class ImportFailuresController{
   try{await rateLimit('import-failure:'+req.user.id,20,86400);}catch{return {reported:false};}
   await pool.query("DELETE FROM import_failures WHERE created_at<now()-interval '30 days'");
   await pool.query('INSERT INTO import_failures(user_id,file_hash,kind) VALUES($1,$2,$3)',[req.user.id,report.fileHash,report.kind]);
-  const mail=importReportEmail(report,{reporter:{name:req.user.name,email:req.user.email}});
+  const mail=importReportEmail(report,{reporter:{name:req.user.name,email:req.user.email},origin:config.origin});
   // Reports from test accounts are recorded but never sent.
-  await enqueueText(config.importAlertEmail,mail.subject,mail.body,{suppress:reservedAddress(req.user.email)});
+  await enqueueEmail(config.importAlertEmail,mail,{suppress:reservedAddress(req.user.email)});
   return {reported:true};
  }
 }

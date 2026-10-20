@@ -5,6 +5,7 @@ x-api: &api
     context: .
     target: api
   environment: &api-env
+    TZ: Asia/Kolkata
     NODE_ENV: production
     APP_ORIGIN: ${APP_ORIGIN:?Run node deploy/setup.mjs first}
     DATABASE_URL: postgresql://ledger:${POSTGRES_PASSWORD:?Database password required}@db:5432/ledger
@@ -28,7 +29,10 @@ x-api: &api
 services:
   db:
     image: postgres:18-bookworm
+    # Everything runs on Indian Standard Time: logs, backup names and database timestamps as displayed.
+    command: [postgres, -c, timezone=Asia/Kolkata, -c, log_timezone=Asia/Kolkata]
     environment:
+      TZ: Asia/Kolkata
       POSTGRES_DB: ledger
       POSTGRES_USER: ledger
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
@@ -61,6 +65,7 @@ services:
       context: .
       target: web
     environment:
+      TZ: Asia/Kolkata
       API_INTERNAL_URL: http://api:3001
     depends_on:
       api: {condition: service_healthy}
@@ -77,6 +82,7 @@ services:
   proxy:
     image: caddy:2-alpine
     environment:
+      TZ: Asia/Kolkata
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
       PUBLIC_ORIGIN: ${APP_ORIGIN}
     ports: ['127.0.0.1:5800:80']
@@ -92,6 +98,7 @@ services:
     user: '${BACKUP_UID:-1000}:${BACKUP_GID:-1000}'
     entrypoint: [/bin/sh, /usr/local/bin/backup-loop.sh]
     environment:
+      TZ: Asia/Kolkata
       PGHOST: db
       PGUSER: ledger
       PGDATABASE: ledger
@@ -117,6 +124,7 @@ services:
     image: ledger-api:local
     command: [node, /monitor/monitor.mjs]
     environment:
+      TZ: Asia/Kolkata
       APP_ORIGIN: ${APP_ORIGIN}
       NTFY_URL: ${NTFY_URL:-}
       BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}

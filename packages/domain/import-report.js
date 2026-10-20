@@ -1,10 +1,11 @@
 // A statement that could not be read (or was only partly read) is reported to the operator so the parser can be extended.
 // Only a description travels: file name, type, size, bank account, column names and the error. Never rows or amounts.
+import {renderEmail} from './emails.js';
 const kinds={
- unreadable:['could not read a statement','Ledger could not read this statement.'],
- empty:['found no transactions in a statement','No transactions could be read.'],
- partial:['only partly read a statement','Some rows could not be read and were left out.'],
- unsupported:['could not open a statement file','This file type is not supported.'],
+ unreadable:['could not read a statement','Ledger could not read this statement.','A statement couldn’t be read'],
+ empty:['found no transactions in a statement','No transactions could be read.','No transactions found in a statement'],
+ partial:['only partly read a statement','Some rows could not be read and were left out.','A statement was only partly read'],
+ unsupported:['could not open a statement file','This file type is not supported.','A file type Ledger can’t open'],
 };
 const types=['PDF','Excel','CSV','Other'];
 const text=(v,max)=>typeof v==='string'?v.replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,max):'';
@@ -21,7 +22,7 @@ export function cleanImportReport(raw){
 }
 const size=b=>b===undefined?'':b<1024*1024?`${Math.max(1,Math.round(b/1024))} KB`:`${(b/1024/1024).toFixed(1)} MB`;
 const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
-export function importReportEmail(r,{reporter={},when=new Date()}={}){
+export function importReportEmail(r,{reporter={},when=new Date(),origin=''}={}){
  const extension=(r.fileName.match(/\.([a-z0-9]{1,8})$/i)?.[1]||'').toLowerCase(),
   label=r.fileType==='Other'?(extension?`.${extension} file`:'unknown file type'):r.issuer?`${r.issuer} ${r.fileType}`:`${r.fileType} statement`;
  const subject=`Ledger ${kinds[r.kind][0]}: ${label}`.replace(/[\r\n]+/g,' ').slice(0,160);
@@ -36,7 +37,7 @@ export function importReportEmail(r,{reporter={},when=new Date()}={}){
   ['Imported by',[reporter.name,reporter.email&&`<${reporter.email}>`].filter(Boolean).join(' ')||'Unknown'],
   ['When',when.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'})+' IST'],
  ];
- const body=[`Ledger ${kinds[r.kind][0]} during an import, so its parser may need updating.`,'',...facts.map(([k,v])=>`${k}: ${v}`),'',
-  'The statement is not attached and was not saved. Share the original file to have the parser updated.'].join('\n');
- return {subject,body};
+ return {subject,...renderEmail({origin,preheader:`${label}: ${facts[0][1]}`,eyebrow:'Statement import',heading:kinds[r.kind][2],
+  paragraphs:[`Ledger ${kinds[r.kind][0]} during an import, so its parser may need updating.`],facts,
+  notice:'The statement is not attached and was not saved. Share the original file to have the parser updated.'})};
 }

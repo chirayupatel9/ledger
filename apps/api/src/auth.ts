@@ -3,16 +3,17 @@ import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { pool } from './database.js';
 import { config } from './config.js';
-import { enqueueMail } from './mail.js';
+import { enqueueEmail } from './mail.js';
+import { verificationEmail, resetPasswordEmail } from '../../../packages/domain/emails.js';
 const notInvited=()=>new APIError('FORBIDDEN',{code:'NOT_INVITED',message:'Sign-up is by invitation. This email address has not been invited.'});
 const invited=async(email:string)=>!!(await pool.query('SELECT 1 FROM signup_invites WHERE email=$1',[email.trim().toLowerCase()])).rowCount;
 export const auth=betterAuth({
   appName:'Ledger',baseURL:config.origin,secret:config.secret,database:pool,trustedOrigins:[config.origin],
   disabledPaths:config.mailEnabled?(config.signupEnabled?[]:['/sign-up/email']):['/sign-up/email','/request-password-reset','/reset-password','/send-verification-email','/verify-email'],
   emailAndPassword:{enabled:true,disableSignUp:!config.signupEnabled,requireEmailVerification:true,minPasswordLength:12,maxPasswordLength:128,
-    revokeSessionsOnPasswordReset:true,sendResetPassword:config.mailEnabled?async({user,url})=>enqueueMail(user.email,'Reset your Ledger password',url):undefined},
+    revokeSessionsOnPasswordReset:true,sendResetPassword:config.mailEnabled?async({user,url})=>enqueueEmail(user.email,resetPasswordEmail({url,email:user.email,origin:config.origin})):undefined},
   emailVerification:{sendOnSignUp:config.signupEnabled,sendOnSignIn:config.mailEnabled,autoSignInAfterVerification:false,
-    sendVerificationEmail:config.mailEnabled?async({user,url})=>enqueueMail(user.email,'Verify your Ledger email',url):undefined},
+    sendVerificationEmail:config.mailEnabled?async({user,url})=>enqueueEmail(user.email,verificationEmail({url,origin:config.origin})):undefined},
   socialProviders:config.googleId&&config.googleSecret?{google:{clientId:config.googleId,clientSecret:config.googleSecret,disableSignUp:config.signupMode==='closed'}}:{},
   account:{accountLinking:{enabled:false}},
   // Better Auth answers failed sign-ups with a decoy success (so emails cannot be probed); tell uninvited people plainly instead.

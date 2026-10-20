@@ -24,7 +24,7 @@ try{
  await page.goto(base+'/settings');const card=page.locator('#invites-card');await card.locator('#invite-form').waitFor();
  for(const u of [invited,pending]){await card.locator('#invite-form [name="email"]').fill(u.email);await card.getByRole('button',{name:'Invite'}).click();await card.locator(`[data-invite="${u.email}"]`).waitFor();cleanup.push(u);}
  assert.match(await card.locator(`[data-invite="${invited.email}"]`).innerText(),/Invited/);
- const sent=await sql('SELECT subject,suppressed FROM mail_outbox WHERE recipient=$1',[invited.email]);assert.deepEqual(sent,[{subject:'You are invited to Ledger',suppressed:true}],'invitation recorded but never sent to a .test address');
+ const sent=await sql('SELECT subject,suppressed FROM mail_outbox WHERE recipient=$1',[invited.email]);assert.deepEqual(sent,[{subject:'Invite Owner invited you to Ledger',suppressed:true}],'invitation recorded but never sent to a .test address');
  const memberCtx=await browser.newContext();await signIn(memberCtx,member);assert.equal((await memberCtx.request.get(base+'/api/invites')).status(),403);
  assert.equal((await memberCtx.request.post(base+'/api/invites',{headers:{Origin:base},data:{email:stranger.email}})).status(),403);
  const memberPage=await memberCtx.newPage();watch(memberPage);await memberPage.goto(base+'/settings');await memberPage.locator('#preferences-form').waitFor();assert.equal(await memberPage.locator('#invites-card').count(),0);await memberCtx.close();

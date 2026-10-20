@@ -44,5 +44,10 @@ try {
  CREATE INDEX import_failures_recent ON import_failures(user_id,file_hash,created_at);
  INSERT INTO ledger_migrations(version) VALUES(4);
  `);}
+ const htmlMailMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=5');
+ if(!htmlMailMigration.rowCount){await client.query(`
+ ALTER TABLE mail_outbox ADD COLUMN html text;
+ INSERT INTO ledger_migrations(version) VALUES(5);
+ `);}
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

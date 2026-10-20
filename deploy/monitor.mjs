@@ -25,7 +25,7 @@ async function tick(){
   const failing=result!==true,s=state.get(c.id)||{failing:false,sent:0};
   if(failing&&(!s.failing||Date.now()-s.sent>remindAfter)){if(await notify(`Ledger: ${c.label} needs attention`,result,true))s.sent=Date.now();}
   else if(!failing&&s.failing)await notify(`Ledger: ${c.label} is OK again`,`${c.label} has recovered.`,false);
-  if(failing!==s.failing)console.log(new Date().toISOString(),c.id,failing?'failing: '+result:'recovered');
+  if(failing!==s.failing)console.log(new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'IST',c.id,failing?'failing: '+result:'recovered');
   state.set(c.id,{...s,failing});
  }
 }
