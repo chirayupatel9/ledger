@@ -7,5 +7,6 @@ dist/
 *.tsbuildinfo
 backups/
 playwright-results/
+apps/web/public/assets/
 
 .secrets/

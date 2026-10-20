@@ -50,3 +50,10 @@ Verified `https://ledger.chirayupatel.dev/login` with a valid certificate and HT
 - Synthetic PDFs exercise multi-line headers, serial numbers before dotted dates, narrations above/below the date baseline, long wrapped descriptions, repeated page headers, large deposits, excluded cheque numbers/footers, missing pages, numbering gaps, invalid dates, conflicting debit/credit values and missing balances.
 - `tests/numbered-bank-browser.mjs` passed for preview, reconciliation, save, persisted reload, original download, duplicate prevention, and removal of both transactions and the stored original. Its disposable test account was deleted.
 - Unit tests, TypeScript checks and the Docker web build passed; the updated web container is healthy.
+
+## Browser cache consistency — 20 October 2026 (IST)
+
+- Public JavaScript responses allowed four hours of caching, while workspace and lazy PDF imports reused unversioned URLs. Reproduced the reported “No transactions could be read” screen by loading the previous PDF parser into a disposable browser tab before importing a synthetic numbered statement.
+- Web builds now copy the complete workspace module graph, styles and vendor workers into a content-hashed release directory. Unit tests verify deterministic URLs, dependency/worker changes producing new URLs, preserved relative paths, and unchanged previous build contents.
+- The live numbered-PDF workflow passes with an intentionally stale `/pdf.js` module already loaded. The app requests its parser from the same versioned directory as its entry point. Synthetic transactions/originals and the disposable account were deleted after the test.
+- Unit tests, TypeScript checks and the Docker production build passed; the web container is healthy. No personal statement was needed or retained for this regression.

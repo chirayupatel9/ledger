@@ -23,6 +23,13 @@ try{
  const data=await state();data.state={schemaVersion:2,initialized:true,accounts:[{id:'pdf-test',name:'PDF Savings',bank:'Test bank',type:'Savings',last4:'',currency:'INR',archived:false}],statements:[],transactions:[],rules:[]};
  assert.equal((await context.request.put(base+'/api/ledger',{headers:{Origin:base},data})).status(),200);
  await page.goto(base+'/statements');
+ // Reproduce an old parser already loaded in this tab. A new release must never reuse that URL.
+ await page.route(base+'/pdf.js',route=>route.fulfill({contentType:'text/javascript',body:'export async function readPDF(){return {transactions:[],invalid:[],warnings:[]}}'}));
+ await page.evaluate(()=>import('/pdf.js'));
+ await page.unroute(base+'/pdf.js');
+ const releaseScript=page.locator('script[src*="/assets/"][src$="/app.js"]');
+ await releaseScript.waitFor({state:'attached'});
+ const releaseBase=(await releaseScript.getAttribute('src')).replace(/\/app\.js$/,'');
  const upload=async file=>{
   await page.locator('[data-action="upload"]').first().click();
   await page.locator('#account-name').selectOption('pdf-test');
@@ -46,6 +53,7 @@ try{
  }
  const file={name:'synthetic-numbered.pdf',mimeType:'application/pdf',buffer:makePDF(numberedBank)};
  await upload(file);
+ assert.ok(await page.evaluate(base=>performance.getEntriesByType('resource').some(r=>r.name===location.origin+base+'/pdf.js'),releaseBase),'PDF parser must load from the same release as app.js');
  assert.equal(await page.locator('[data-include]').count(),4);
  assert.equal(await page.locator('#st-from').inputValue(),'2026-04-01');
  assert.equal(await page.locator('#st-to').inputValue(),'2026-10-20');
@@ -62,5 +70,5 @@ try{
  const removed=(await state()).state;assert.equal(removed.statements.length,0);assert.equal(removed.transactions.length,0);
  assert.equal((await context.request.get(base+'/api/files/'+original)).status(),404);
  assert.deepEqual(errors,[]);
- console.log('PASS: numbered PDF preview, period/balances, save, persisted reload, original download, duplicate prevention and deletion of transactions/original.');
+ console.log('PASS: cached old parser bypassed; numbered PDF preview, period/balances, save, persisted reload, original download, duplicate prevention and deletion of transactions/original.');
 }finally{await browser.close();if(created)await operator(false);}

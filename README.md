@@ -54,6 +54,8 @@ The existing `chatgpt.site` URL cannot host these Docker containers. Use this ma
 
 ## Operations and backups
 
+Each web build puts the workspace scripts, styles, lazy importers and PDF workers under one content-hashed `/assets/<release>/` directory. Changing any dependency changes the entire release's URLs, so browser/CDN caches cannot mix the new app with an older parser. Generated assets are excluded from Git and Docker build inputs. After deployment, reload an already-open tab to use the new release.
+
 ```sh
 sudo docker compose ps
 sudo docker compose logs --tail=100 api
