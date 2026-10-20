@@ -2,7 +2,7 @@ import {findTable} from './core.js';
 // Excel exports (SBI, HDFC, ICICI, Axis, Kotak). Dates are read from cell serials so a US "m/d/yy" cell format cannot flip day and month.
 function cellText(XLSX,cell){
  if(!cell||cell.v==null)return '';
- if(cell.t==='n'){if(cell.z&&XLSX.SSF.is_date(cell.z)){const d=XLSX.SSF.parse_date_code(cell.v);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}return String(Math.round(cell.v*100)/100);}
+ if(cell.t==='n'){if(cell.z&&XLSX.SSF.is_date(cell.z)){const d=XLSX.SSF.parse_date_code(cell.v);if(d)return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;}return String(Math.round(cell.v*1e6)/1e6);}
  if(cell.t==='d'&&cell.v instanceof Date)return cell.v.toISOString().slice(0,10);
  return String(cell.w??cell.v).trim();
 }

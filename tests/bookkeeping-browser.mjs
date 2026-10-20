@@ -7,6 +7,7 @@ import {mkdirSync} from 'node:fs';
 import {setTimeout as sleep} from 'node:timers/promises';
 import * as XLSX from '../apps/web/public/vendor/xlsx.mjs';
 import {makePDF,hdfc as cardStatement} from './fixtures/card-statements.mjs';
+import {fundReport,fundRows} from './fixtures/fund-report.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
 const base=process.env.LEDGER_URL||'https://ledger.chirayupatel.dev';
 const users=[1,2].map(()=>({name:'Bookkeeping QA',email:`bank-qa-${randomUUID()}@example.test`,password:randomBytes(24).toString('base64url')}));
@@ -143,6 +144,20 @@ try{
  await recurring.locator('[data-recurring="Netflix"]').click();assert.equal(await page.locator('#search').inputValue(),'Netflix');assert.equal(await page.locator('#transaction-results tbody tr').count(),3);
  await page.goto(base+'/');await page.locator('.security-strip').waitFor();
 
+ // 8d. SIP report into an Investment account: stamp duty split out, report total checked, purchases linked to NSE Clearing debits.
+ data=await state();data.state.accounts.push({id:'mf',name:'Mutual funds',bank:'Distributor',type:'Investment',last4:'',currency:'INR',archived:false});
+ const augSt=data.state.statements.find(st=>st.name==='hdfc-aug.csv').id,nachDebit=(id,date,amount)=>({id,statementId:augSt,accountId:'hdfc',account:'HDFC Savings',date,description:`NACH trxn ACH/NSECLEARINGLTDNSEINV/ICIC0000/${id}`,amount,category:'Uncategorized',type:'Expense',review:true});
+ data.state.transactions.push(nachDebit('sip1','2026-07-10',-2500000),nachDebit('sip2','2026-07-10',-2500000),nachDebit('sip3','2026-07-10',-2500000),nachDebit('sip4','2026-07-20',-2000000));
+ assert.equal((await put(data)).status(),200);await page.goto(base+'/statements');await page.locator('h1').waitFor();
+ await importFile({name:'sip-report.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:fundReport(fundRows.slice(0,4))},'mf');
+ assert.notEqual(await page.locator('[data-map="charges"]').inputValue(),'-1');await page.locator('#map-next').click();
+ await page.locator('#reconcile-result').getByText('add up to the report’s total').waitFor();assert.equal(await page.locator('[data-include]').count(),8,'4 purchases and 4 stamp duty charges');
+ await page.locator('#commit-import').click();const sipPairs=page.locator('.pair-row');await sipPairs.first().waitFor();assert.equal(await sipPairs.count(),4);
+ await page.locator('#pair-confirm').click();await page.locator('#modal').waitFor({state:'hidden'});
+ tx=(await state()).state.transactions;const sipLinked=tx.filter(t=>/^sip\d$/.test(t.id));
+ assert.ok(sipLinked.every(t=>t.transferId&&t.category==='Investments'&&t.type==='Transfer'));assert.equal(new Set(sipLinked.map(t=>t.transferId)).size,4);
+ assert.equal(tx.filter(t=>t.accountId==='mf'&&/^Stamp duty/.test(t.description)).reduce((v,t)=>v+t.amount,0),-475);
+
  // 8. Paging: a large ledger renders 200 rows at a time.
  const other=await browser.newContext();assert.equal((await other.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[1].email,password:users[1].password}})).status(),200);
  // A full statement period can contain no activity after the last recurring payment.
@@ -169,5 +184,5 @@ try{
  await page.goto(base+'/');await page.locator('.metrics').waitFor();assert.equal(await page.locator('.security-strip').count(),0,'reminder disappears once two-step verification is on');
 
  assert.deepEqual(problems,[]);
- console.log('PASS: picking between equal transfer matches, investments not offered, transfer prompt after import, Overview transfer strip, Reports transfers net to zero, recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
+ console.log('PASS: SIP report import with stamp duty and total check, SIP purchases linked to NSE Clearing debits, picking between equal transfer matches, investments not offered, transfer prompt after import, Overview transfer strip, Reports transfers net to zero, recurring payments, two-step reminder, transfer pairing (find, confirm, unlink, relink, unlinked filter), credit card PDF import (signs, amount due, card account warning, outstanding balance, EMI labels), Excel import with period/balances, duplicate re-import, unreadable-row detection, missing-period and balance-break detection, statement details, rule back-fill, bulk edit with type safety, tax summary and export, mobile layout, 200-row paging, two-step verification, no CSP violations.');
 }finally{await browser.close();for(const user of created)await operator(false,user);}

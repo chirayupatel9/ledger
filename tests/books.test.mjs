@@ -16,11 +16,11 @@ const headers={
  kotak:['Sl. No.','Transaction Date','Value Date','Description','Chq / Ref No.','Amount','Dr / Cr','Balance'],
 };
 test('column detection covers SBI, HDFC, ICICI, Axis and Kotak exports',()=>{
- assert.deepEqual(guessMapping(headers.hdfc),{date:0,description:1,amount:-1,debit:4,credit:5,direction:-1,balance:6});
- assert.deepEqual(guessMapping(headers.icici),{date:2,description:4,amount:-1,debit:5,credit:6,direction:-1,balance:7});
- assert.deepEqual(guessMapping(headers.sbi),{date:0,description:2,amount:-1,debit:4,credit:5,direction:-1,balance:6});
- assert.deepEqual(guessMapping(headers.axis),{date:0,description:2,amount:-1,debit:3,credit:4,direction:-1,balance:5});
- assert.deepEqual(guessMapping(headers.kotak),{date:1,description:3,amount:5,debit:-1,credit:-1,direction:6,balance:7});
+ assert.deepEqual(guessMapping(headers.hdfc),{date:0,description:1,amount:-1,debit:4,credit:5,direction:-1,balance:6,charges:-1});
+ assert.deepEqual(guessMapping(headers.icici),{date:2,description:4,amount:-1,debit:5,credit:6,direction:-1,balance:7,charges:-1});
+ assert.deepEqual(guessMapping(headers.sbi),{date:0,description:2,amount:-1,debit:4,credit:5,direction:-1,balance:6,charges:-1});
+ assert.deepEqual(guessMapping(headers.axis),{date:0,description:2,amount:-1,debit:3,credit:4,direction:-1,balance:5,charges:-1});
+ assert.deepEqual(guessMapping(headers.kotak),{date:1,description:3,amount:5,debit:-1,credit:-1,direction:6,balance:7,charges:-1});
 });
 test('bank preamble period, separators, footers, continuation lines and running balances',()=>{
  const csv=['Statement From : 01/10/26 To : 31/10/26','Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balance','********,********,********,********,********,********,********',

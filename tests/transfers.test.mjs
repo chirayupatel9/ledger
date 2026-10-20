@@ -91,3 +91,11 @@ test('self transfers and NSE Clearing debits are classified and named',()=>{
  assert.equal(transactionLabel({description:'Self BIL/INFT/FHO9148004/Self',amount:-2000000}).title,'Self transfer');
  assert.equal(transactionLabel({description:'NACH trxn ACH/NSECLEARINGLTDNSEINV/X',amount:-2000000}).title,'NSE Clearing');
 });
+test('identical legs pair automatically only when nothing is left out, except SIPs into an Investment account',()=>{
+ const card=t('card','card','2026-08-30',700000,'Transfer','PAYMENT RECEIVED');
+ const two=['AAA111','BBB222'].map(r=>t(r,'hdfc','2026-08-30',-700000,'Expense',`Self BIL/INFT/${r}/Self`));
+ let r=findTransferPairs([card,...two]);assert.deepEqual(ids(r),[]);assert.equal(r.choices[0].options.length,2,'two self transfers for one card payment: you choose');
+ const c2=t('card2','card','2026-08-30',700000,'Transfer','PAYMENT RECEIVED');r=findTransferPairs([card,c2,...two]);assert.equal(ids(r).length,2,'two and two are interchangeable');
+ const sips=[1,2,3].map(i=>t('s'+i,'bank','2026-07-10',-2500000,'Expense','NACH/NSECLEARINGLTD/'+i)),buys=[1,2].map(i=>({...t('b'+i,'mf','2026-07-10',2500000,'Transfer','SIP Purchase · Fund'),category:'Investments'}));
+ r=findTransferPairs([...sips,...buys],{accounts:[{id:'mf',type:'Investment'}]});assert.equal(ids(r).length,2,'SIP purchases pair even when one bank debit has no purchase in this report');
+});

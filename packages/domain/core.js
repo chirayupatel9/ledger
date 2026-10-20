@@ -7,15 +7,17 @@ const rules=[
  // Topping up a wallet (Amazon Pay, Paytm) moves money to another account you hold.
  ['Transfers',/wallet load|wallet top-?up|load(?:ed)? (?:to |money )?wallet|add(?:ed)? money to wallet/i,'out'],
  ['Taxes',/advance tax|self[- ]?assessment|income ?tax|\bitns ?2\d\d\b|\boltas\b|\bcbdt\b|tin[- ]?nsdl|e-?pay ?tax|\bcbic\b|gst (?:payment|challan)|property tax|professional tax|\btds\b/i,'out'],
- ['Fees & charges',/bank charges|service charges?|sms (?:alert )?(?:charges?|chgs?)|annual (?:fee|charges?)|\bamc\b|min(?:imum)?\.? ?bal|non[- ]?maint|penal|late (?:payment )?fee|cash handling|(?:atm|imps|neft|rtgs|dc|debit card|card) (?:fees?|chgs?|charges?)|\bchgs?\b|\bchrgs?\b|gst on (?:charges|fees?)|finance charges?|interest (?:charges?|on)|annual fee|renewal fee|joining fee|over ?limit|surcharge|cash advance fee|mark-?up|forex|cross[- ]currency|dcc fee|\b[cis]?gst\b/i,'out'],
+ ['Fees & charges',/bank charges|service charges?|sms (?:alert )?(?:charges?|chgs?)|annual (?:fee|charges?)|\bamc\b(?! ?(?:ltd|limited|pvt))|min(?:imum)?\.? ?bal|non[- ]?maint|penal|late (?:payment )?fee|cash handling|(?:atm|imps|neft|rtgs|dc|debit card|card) (?:fees?|chgs?|charges?)|\bchgs?\b|\bchrgs?\b|gst on (?:charges|fees?)|finance charges?|interest (?:charges?|on)|annual fee|renewal fee|joining fee|over ?limit|surcharge|cash advance fee|mark-?up|forex|cross[- ]currency|dcc fee|\b[cis]?gst\b/i,'out'],
  ['Cash withdrawal',/\batm\b|cash withdrawal|cash wdl|\bnwd\b|\batw\b|\bcwdr?\b|self withdrawal/i,'out'],
  ['Salary',/salary|payroll|\bsal\b/i,'in'],
  ['Dividends',/dividend|\bdiv\b/i,'in'],
  ['Interest',/interest|\bint\.? ?(?:paid|pd|cr|credit|coll)\b|\b(?:sb|fd|td|rd) int\b/i,'in'],
  ['Rental income',/\brent(?:al)?\b/i,'in'],
+ // Fund houses share names with insurers (Aditya Birla Sun Life, SBI, HDFC): an AMC or mutual fund is an investment.
+ ['Investments',/\bamc (?:ltd|limited)\b|asset management|mutual fund/i],
  ['Insurance',/insurance|\blic\b|star health|niva bupa|care health|hdfc ergo|icici lombard|icici pru|max life|sbi life|tata aia|bajaj allianz|aditya birla (?:health|sun life)|policybazaar|go digit|\backo\b/i,'out'],
  ['Loan EMI',/\bemi\b|\bloan\b|\bhsg\b|housing fin|bajaj fin|home credit|tata capital|hdb fin|l&t fin|muthoot/i,'out'],
- ['Investments',/zerodha|groww|upstox|angel ?one|kuvera|paytm money|icici ?direct|hdfc ?sec|kotak sec|mutual fund|\bsip\b|\bmf\b|\bnps\b|\bppf\b|\bcams\b|kfin|bse ?star|indian clearing|\biccl\b|nse ?clearing|bse ?clearing|\bnsccl\b|\bcdsl\b|smallcase|sovereign gold|\bsgb\b|\bnsdl\b/i],
+ ['Investments',/zerodha|groww|upstox|angel ?one|kuvera|paytm money|icici ?direct|hdfc ?sec|kotak sec|mutual fund|\bsip\b|\bmf\b|\bnps\b|\bppf\b|\bcams\b|kfin|bse ?star|indian clearing|\biccl\b|nse ?clearing|bse ?clearing|\bbse\b|bse ?(?:ltd|limited)|mf ?utilit|\bmfu\b|camsonline|\bamc\b|asset management|\bnsccl\b|\bcdsl\b|smallcase|sovereign gold|\bsgb\b|\bnsdl\b/i],
  ['Donations',/donation|pm ?cares|charit|giveindia|ketto|milaap/i,'out'],
  ['Education',/school|college|universit|tuition|byju|unacademy|vedantu|coursera|udemy|exam fee/i,'out'],
  ['Food & dining',/swiggy(?! ?instamart)|zomato|starbucks|restaurant|\bcafe\b|coffee|domino|mcdonald|\bkfc\b|pizza|burger|chaayos|haldiram|eatsure|barbeque/i],
@@ -74,7 +76,7 @@ export function findPeriod(text){
 // Locate the transaction header row in CSV or spreadsheet rows, keeping preamble/footer text for period detection.
 export function findTable(rows){
  const clean=rows.map(r=>r.map(c=>String(c??'').replace(/^﻿/,'').trim()));
- const h=clean.findIndex(r=>r.some(c=>/date/i.test(c))&&r.some(c=>/description|narration|particular|details|remark/i.test(c)));
+ const h=clean.findIndex(r=>r.some(c=>/date/i.test(c))&&r.some(c=>/description|narration|particular|details|remark|scheme/i.test(c)));
  if(h<0)throw Error('No transaction header found. Include Date, Description, and Amount, or Debit and Credit columns.');
  const outside=[...clean.slice(0,h),...clean.slice(h+1).filter(r=>!r.some(c=>c.length<=24&&parseDate(c)))];
  return {headers:clean[h].map(s=>s.replace(/\s+/g,' ')),rows:clean.slice(h+1),period:findPeriod(outside.flat().join(' '))};
@@ -85,14 +87,39 @@ export function guessMapping(headers){
  const find=(...patterns)=>{for(const re of patterns){const i=h.findIndex((x,j)=>!used.has(j)&&re.test(x));if(i>=0){used.add(i);return i}}return -1};
  const direction=find(/^(?:type|dr ?\/? ?cr|cr ?\/? ?dr|debit ?\/ ?credit|credit ?\/ ?debit|transaction type|txn type)\.?$/i);
  const date=find(/^(?:transaction|txn|tran|trans|posting|post)\.? ?date$/i,/^date$/i,/date/i);
- const description=find(/narration|description|particulars?|details|remarks?/i);
+ const description=find(/narration|description|particulars?|details|remarks?/i,/scheme/i);
  const debit=find(/withdrawal|debit|^dr\.?$|^dr\b|\(dr\)|paid out|money out/i);
  const credit=find(/deposit|credit|^cr\.?$|^cr\b|\(cr\)|paid in|money in/i);
  const amount=debit>=0&&credit>=0?-1:find(/^(?:transaction |txn )?(?:amount|amt)\b/i);
- const balance=find(/balance|^bal\.?$/i);
- return {date,description,amount,debit,credit,direction,balance};
+ const balance=find(/balance|^bal\.?$/i),charges=find(/stamp duty/i);
+ return {date,description,amount,debit,credit,direction,balance,charges};
 }
-export function mapRows(data,mapping,account,custom=[],{card=false}={}){
+// Mutual fund transaction reports (distributor, CAMS/KFintech, platform exports): a scheme column plus folio, units or NAV.
+export const looksLikeInvestmentReport=headers=>headers.some(h=>/scheme/i.test(h))&&headers.some(h=>/folio|^units?$|^nav$/i.test(h));
+const investmentIn=/purchase|\bsip\b|switch[ -]?in|stp[ -]?in|systematic investment|reinvest/i,investmentOut=/redemption|redeem|switch[ -]?out|stp[ -]?out|\bswp\b|withdrawal|payout/i;
+// In an Investment account, money in is a purchase (the bank debit = amount + stamp duty, booked as its own charge) and
+// money out is a redemption. Purchases are transfers from your bank, so they can be linked to the matching debit.
+function mapInvestmentRows(data,mapping,account){
+ const transactions=[],invalid=[];let skipped=0,totals=null;const col=re=>data.headers.findIndex(h=>re.test(h)),folio=col(/folio/i),units=col(/^units?$/i),nav=col(/^nav$/i);
+ data.rows.forEach((r,i)=>{
+  const cell=k=>typeof k==='number'?(k>=0?String(r[k]??'').trim():''):mapping[k]>=0?String(r[mapping[k]]??'').trim():'';
+  const date=parseDate(cell('date')),scheme=cell('description').replace(/\s+/g,' '),kind=cell('direction')||'Purchase',net=parseMoney(cell('amount')),stamp=Math.abs(parseMoney(cell('charges'))||0);
+  if(!date&&!net){skipped++;return;}
+  // The report's own total row is a check, not a transaction.
+  if(!date&&r.some(c=>/^(?:grand )?total\b/i.test(String(c??'').trim()))){totals={net:Math.abs(net||0),stamp:stamp};skipped++;return;}
+  const sign=investmentOut.test(kind)?-1:investmentIn.test(kind)?1:0;
+  if(!date||!scheme||!net||!sign){invalid.push(i+2);return;}
+  const details=[cell(folio)&&'Folio '+cell(folio),cell(units)&&cell(nav)&&`${cell(units)} units @ ₹${cell(nav)}`].filter(Boolean),amount=sign*(Math.abs(net)+(sign>0?stamp:0));
+  transactions.push({id:crypto.randomUUID(),date,description:[kind,scheme,...details].join(' · '),amount,account,category:'Investments',type:'Transfer',review:true});
+  if(sign>0&&stamp)transactions.push({id:crypto.randomUUID(),date,description:['Stamp duty',scheme,...details.slice(0,1)].join(' · '),amount:-stamp,account,category:'Taxes',type:'Expense',review:false});
+ });
+ return {transactions,invalid,skipped,openingHint:null,closingHint:null,totals};
+}
+// Rows must add up to the report's total: purchases net of stamp duty, and stamp duty itself.
+export function investmentTotalsCheck(transactions,totals){if(!totals)return null;const buys=transactions.filter(t=>t.amount>0&&t.category==='Investments'),out=transactions.some(t=>t.amount<0&&t.category==='Investments');if(out)return null;
+ const stamp=-transactions.filter(t=>t.category==='Taxes'&&/^stamp duty/i.test(t.description)).reduce((v,t)=>v+t.amount,0),net=buys.reduce((v,t)=>v+t.amount,0)-stamp;return {net,stamp,expectedNet:totals.net,expectedStamp:totals.stamp,ok:net===totals.net&&stamp===totals.stamp};}
+export function mapRows(data,mapping,account,custom=[],{card=false,investment=false}={}){
+ if(investment)return mapInvestmentRows(data,mapping,account);
  const transactions=[],invalid=[];let skipped=0,openingHint=null,closingHint=null,last=-2,footer=false;
  data.rows.forEach((r,i)=>{
   if(footer||r.every(c=>/^[\s*=_.\-–—]*$/.test(String(c??'')))){skipped++;return;}

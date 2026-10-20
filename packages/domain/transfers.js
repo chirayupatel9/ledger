@@ -13,7 +13,9 @@ export function unlinkTransfer(transactions,t){const id=t?.transferId;if(!id)ret
 export function linkTransfer(transactions,a,b,id=crypto.randomUUID()){
  if(!a||!b||a.accountId===b.accountId||a.amount!==-b.amount)throw Error('Only a debit and a credit of the same amount in two different accounts can be linked.');
  unlinkTransfer(transactions,a);unlinkTransfer(transactions,b);
- for(const t of [a,b]){t.transferId=id;t.type='Transfer';if(t.category!=='Investments')t.category='Transfers';t.review=false;}
+ // Money moved into an investment stays an investment on both sides.
+ const investment=[a,b].some(t=>t.category==='Investments'||classify(String(t.description||''),t.amount).category==='Investments');
+ for(const t of [a,b]){t.transferId=id;t.type='Transfer';t.category=investment?'Investments':'Transfers';t.review=false;}
 }
 // Legs that could pair with t, for manual linking: other account, opposite equal amount, within a week.
 export function linkCandidates(transactions,t,window=7){return transactions.filter(x=>x!==t&&x.accountId!==t.accountId&&x.amount===-t.amount&&days(x.date,t.date)<=window).sort((x,y)=>days(x.date,t.date)-days(y.date,t.date));}
@@ -21,10 +23,11 @@ export function linkCandidates(transactions,t,window=7){return transactions.filt
 function hints(t,memo){let h=memo.get(t);if(!h){const c=t.type==='Transfer'?t:classify(String(t.description||''),t.amount),investment=t.category==='Investments'||c.category==='Investments';h={investment,transfer:!investment&&(t.type==='Transfer'||c.type==='Transfer')};memo.set(t,h);}return h;}
 function score(debit,credit,maxDays,ctx){
  const gap=days(debit.date,credit.date);if(gap>maxDays)return null;
- const d=hints(debit,ctx.memo),c=hints(credit,ctx.memo);
- // Money sent to a broker or fund never pays a card bill or reaches a bank account, unless that account is an Investment account you track.
- if((d.investment||c.investment)&&!ctx.investmentAccounts.has(debit.accountId)&&!ctx.investmentAccounts.has(credit.accountId))return null;
- const shared=[...references(debit)].find(r=>references(credit).has(r)),transfers=d.transfer+c.transfer;
+ const d=hints(debit,ctx.memo),c=hints(credit,ctx.memo),dInv=ctx.investmentAccounts.has(debit.accountId),cInv=ctx.investmentAccounts.has(credit.accountId);
+ // An Investment account (a fund, broker or SIP report) only pairs with money that looks like an investment on the other side;
+ // elsewhere, money sent to a broker or fund never pays a card bill or reaches a bank account.
+ if(dInv||cInv){if(!(dInv?c:d).investment)return null;}else if(d.investment||c.investment)return null;
+ const shared=[...references(debit)].find(r=>references(credit).has(r)),transfers=dInv||cInv?2:d.transfer+c.transfer;
  // Equal amounts alone are common (rent, splits); require a Transfer leg or a shared reference.
  if(!shared&&!transfers)return null;
  return {debit,credit,value:(shared?5:0)+transfers*2+(gap===0?2:gap===1?1:0),reason:shared?`Same reference ${shared}`:gap===0?'Same day':`${gap} day${gap>1?'s':''} apart`};
@@ -35,11 +38,19 @@ export function findTransferPairs(transactions,{maxDays=3,accounts=[]}={}){
  const open=transactions.filter(t=>!t.transferId),credits=new Map();
  for(const t of open)if(t.amount>0)credits.set(t.amount,[...(credits.get(t.amount)||[]),t]);
  let edges=[];for(const debit of open)if(debit.amount<0)for(const credit of credits.get(-debit.amount)||[])if(credit.accountId!==debit.accountId){const e=score(debit,credit,maxDays,ctx);if(e)edges.push(e);}
- const pairs=[];let changed=true;
+ const pairs=[],sig=e=>[e.debit.accountId,e.debit.date,e.credit.accountId,e.credit.date,e.credit.amount,e.value].join('|');let changed=true;
  while(changed){changed=false;
   const best=new Map();for(const e of edges)for(const t of [e.debit,e.credit]){const b=best.get(t);if(!b||e.value>b.value)best.set(t,{value:e.value,edge:e,tie:false});else if(e.value===b.value)b.tie=true;}
   const taken=new Set();
   for(const e of edges){const d=best.get(e.debit),c=best.get(e.credit);if(d.edge===e&&c.edge===e&&!d.tie&&!c.tie){pairs.push(e);taken.add(e.debit).add(e.credit);changed=true;}}
+  // Identical legs (same accounts, dates and amount, equally scored, nothing as good elsewhere) are interchangeable,
+  // e.g. six ₹25,000 SIP debits and six ₹25,000 SIP purchases on one day: any one-to-one pairing is equally correct.
+  const groups=new Map();for(const e of edges)if(!taken.has(e.debit)&&!taken.has(e.credit))groups.set(sig(e),[...(groups.get(sig(e))||[]),e]);
+  for(const [key,list] of groups){const ds=[...new Set(list.map(e=>e.debit))],cs=[...new Set(list.map(e=>e.credit))];if(ds.length+cs.length<3||list.length!==ds.length*cs.length)continue;
+   // Unequal counts leave someone out, which matters for ordinary transfers; identical SIP purchases into a fund account are still interchangeable.
+   if(ds.length!==cs.length&&!ctx.investmentAccounts.has(list[0].debit.accountId)&&!ctx.investmentAccounts.has(list[0].credit.accountId))continue;
+   if([...ds,...cs].some(t=>edges.some(e=>(e.debit===t||e.credit===t)&&sig(e)!==key&&e.value>=list[0].value)))continue;
+   for(let i=0;i<Math.min(ds.length,cs.length);i++){const e=list.find(x=>x.debit===ds[i]&&x.credit===cs[i]);pairs.push({...e,reason:`${e.reason} · ${Math.max(ds.length,cs.length)} identical`});taken.add(ds[i]).add(cs[i]);changed=true;}}
   edges=edges.filter(e=>!taken.has(e.debit)&&!taken.has(e.credit));
  }
  const ambiguous=new Set(edges.flatMap(e=>[e.debit,e.credit])).size;
