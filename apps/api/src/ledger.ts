@@ -20,7 +20,8 @@ export class LedgerService{
    const before=await lock(client,owner);
    if(before.revision!==input.revision)return {conflict:true,...shape(before)};
    if(before.state.schemaVersion===2&&!Array.isArray(input.state?.accounts))throw new HttpException('This page uses an older ledger format. Reload the page before saving.',400);
-   state=validateLedger(input.state);
+   // Older open tabs and older exports must not silently erase newer account preferences/rules.
+   state=validateLedger({...input.state,preferences:input.state?.preferences===undefined?before.state.preferences:input.state.preferences,titleRules:input.state?.titleRules===undefined?before.state.titleRules:input.state.titleRules});
    const {rows:files}=await client.query('SELECT id FROM files WHERE owner=$1',[owner]);
    const owned=new Set(files.map(f=>f.id));
    if(state.statements.some(s=>s.fileId&&!owned.has(s.fileId)))throw new HttpException('An original file is missing or belongs to another account.',400);

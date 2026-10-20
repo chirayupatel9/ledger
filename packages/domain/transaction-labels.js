@@ -1,3 +1,4 @@
+import {titleRuleMatches} from './preferences.js';
 // Presentation only. Original narration, classification, amounts and duplicate keys never change.
 const merchants=[['Swiggy',/\bswiggy\b/i],['Zomato',/\bzomato\b/i],['Amazon',/\bamazon\b/i],['Flipkart',/\bflipkart\b/i],['Netflix',/\bnetflix\b/i],['Airtel',/\bairtel\b/i],['BigBasket',/\bbigbasket\b/i],['Blinkit',/\bblinkit\b/i],['Uber',/\buber\b/i],['IRCTC',/\birctc\b/i],['Zerodha',/\bzerodha\b/i]];
 const noise=/^(?:upi|up|p2a|p2m|dr|cr|inf|inft|neft(?:\s+(?:cr|dr))?|imps|rtgs|ach|nach|ecs|pos|ecom|chq|cheque|transfer|payment|purchase|txn|ref|refund|reversal|rev|return|failed|declined|na|null|sent|received|upi payment|[a-z]*\d[a-z\d .*-]*)$/i;
@@ -23,9 +24,11 @@ function explicitName(raw,channel){
  // Multiple possible names are deliberately left unresolved.
  return unique.length===1&&unique[0].length<=60?unique[0]:'';
 }
-export function transactionLabel(transaction){
+export function transactionLabel(transaction,rules=[]){
  const raw=tidy(String(transaction.description||'')),channel=paymentChannel(raw);
  if(transaction.displayName?.trim())return {title:transaction.displayName.trim(),source:'Your label',channel};
+ const rule=rules.find(r=>titleRuleMatches(r,transaction));
+ if(rule)return {title:rule.title,source:'Title rule',channel};
  const reversal=/\b(?:reversal|reversed|rev)\b/i.test(raw),refund=/\brefund\b/i.test(raw),failed=/\b(?:failed|declined)\b/i.test(raw);
  const event=reversal?'Reversal':refund?'Refund':failed?'Failed transaction':'';
  let title='';

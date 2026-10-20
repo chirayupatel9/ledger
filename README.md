@@ -166,3 +166,15 @@ MAIL_FROM=Ledger <you@gmail.com>
 ```
 
 and recreate the API (`sudo docker compose up -d api`). Your Ledger login address must be a mailbox you can read: `ledger.chirayupatel.dev` has no mail server.
+
+## Settings and transaction titles
+
+**Settings** (`/settings`) changes how Ledger looks and what it shows, saved to your account so it follows you across devices: theme (light, dark, or follow the device), font size (14–22 px; the whole interface scales), font family (Ledger sans, device font, serif), row spacing (comfortable or compact), which Overview components appear (cash-flow chart, spending categories, recent transactions), and transaction details (running balances, where a title came from, original narrations expanded). Changes preview immediately and only apply after **Save settings**; leaving with unsaved changes asks first.
+
+**Transaction titles** (`/titles`) replaces cryptic bank narrations with names you recognise:
+
+- **Naming rules** match the original narration by contained or exact text (ignoring case and spacing) and apply to existing and future transactions. The first matching rule wins; **Move up** changes priority. The rule form previews how many transactions it will rename.
+- **Individual titles** correct one transaction and take priority over rules.
+- Titles appear in transactions, search, recurring payments, reports and CSV exports (`readable_name`); the original narration is never changed and is still searchable and exported.
+
+The server validates preferences and up to 500 rules, and keeps your preferences and rules when an older open tab or an older backup saves without them. Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/settings-browser.mjs` for the live checks.

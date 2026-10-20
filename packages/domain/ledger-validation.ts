@@ -2,7 +2,8 @@ import {upgradeAccounts,accountKey,accountTypes} from './accounts.js';
 import {categories,parseDate} from './core.js';
 import {taxTagIds} from './tax.js';
 import {normalizeTransfers} from './transfers.js';
-export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean};
+import {defaultPreferences} from './preferences.js';
+export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[]};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
 const string=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max;
@@ -38,5 +39,17 @@ export function validateLedger(input:any):LedgerState{
  normalizeTransfers(transactions);
  for(const s of statements)s.count=counts[s.id]||0;
  const rules=input.rules.map((r:any)=>{if(!r||!string(r.keyword,200)||!r.keyword.trim()||!categories.includes(r.category))fail('Invalid category rule.');return {keyword:r.keyword.trim(),category:r.category}});
- return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized};
+ if(input.preferences!==undefined&&(!input.preferences||typeof input.preferences!=='object'||Array.isArray(input.preferences)))fail('Invalid display preferences.');
+ const preferences={...defaultPreferences,...input.preferences};
+ if(Object.keys(preferences).some(k=>!Object.hasOwn(defaultPreferences,k))||!['light','dark','system'].includes(preferences.theme)||![14,16,18,20,22].includes(preferences.fontSize)||!['sans','system','serif'].includes(preferences.fontFamily)||!['comfortable','compact'].includes(preferences.density)||['showChart','showCategories','showRecent','showBalances','showLabelSource','expandNarration'].some(k=>typeof preferences[k]!=='boolean'))fail('Invalid display preferences.');
+ if(input.titleRules!==undefined&&!Array.isArray(input.titleRules))fail('Invalid title rules.');
+ if(input.titleRules?.length>500)fail('Up to 500 title rules are supported.');
+ const ruleIds=new Set(),matches=new Set();
+ const titleRules=(input.titleRules||[]).map((r:any)=>{
+  if(!r||!id(r.id)||ruleIds.has(r.id)||!['contains','exact'].includes(r.mode)||!string(r.keyword,200)||!r.keyword.trim()||!string(r.title,160)||!r.title.trim())fail('Invalid title rule. Use a match and a title up to 160 characters.');
+  const keyword=r.keyword.trim().replace(/\s+/g,' '),key=r.mode+':'+keyword.toLowerCase();
+  if(matches.has(key))fail('A title rule already uses that match. Edit the existing rule.');
+  ruleIds.add(r.id);matches.add(key);return {id:r.id,mode:r.mode,keyword,title:r.title.trim()};
+ });
+ return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules};
 }
