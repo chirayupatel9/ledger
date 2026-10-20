@@ -74,10 +74,73 @@ export function parseCardLines(pages,account,rules=[]){
 }
 export function parsePDFLines(pages,account,rules=[],{card=false}={}){
  const text=pages.flat().map(lineText).join(' '),cardLike=looksLikeCardStatement(text);
+ const numbered=parseNumberedBankLines(pages,account,rules);
+ if(numbered)return {...numbered,cardLike:false};
  // Separate debit and credit columns are parsed as a bank table, even on a card account.
  const bankTable=pages.flat().some(l=>{const t=lineText(l);return /\bdate\b/i.test(t)&&/debit|withdrawal/i.test(t)&&/credit|deposit/i.test(t)});
  if((card||cardLike)&&!bankTable)return parseCardLines(pages,account,rules);
  return {...parseBankLines(pages,account,rules),cardLike};
+}
+// Numbered transaction-history PDFs put the date/amount baseline between narration lines.
+// Recognise the complete header, then use column positions and row boundaries, not reading order.
+function numberedHeader(lines){
+ for(let i=0;i<lines.length;i++){
+  const top=lines[i],debit=top.items.find(x=>/^withdrawal$/i.test(x.text)),credit=top.items.find(x=>/^deposit$/i.test(x.text)),balance=top.items.find(x=>/^balance$/i.test(x.text));
+  if(!debit||!credit||!balance)continue;
+  const block=lines.slice(i,i+4).filter(l=>top.y-l.y<=20).flatMap(l=>l.items),find=re=>block.find(x=>re.test(x.text));
+  const serial=find(/^s\s*no\.?$/i),date=find(/^date$/i),cheque=find(/^cheque number$/i),remarks=find(/^transaction remarks$/i);
+  if(serial&&date&&cheque&&remarks&&debit.x<credit.x&&credit.x<balance.x)
+   return {bottom:Math.min(...lines.slice(i,i+4).filter(l=>top.y-l.y<=20).map(l=>l.y)),serial,date,left:cheque.x+cheque.width,right:debit.x-12,columns:{debit,credit,balance}};
+ }
+ return null;
+}
+function parseNumberedBankLines(pages,account,rules){
+ if(!pages.some(lines=>numberedHeader(lines)))return null;
+ const transactions=[],invalid=[],warnings=[];let previousSerial=null;
+ for(const [pageIndex,lines] of pages.entries()){
+  const header=numberedHeader(lines);
+  if(!header){invalid.push(`page ${pageIndex+1}: numbered table header missing`);continue;}
+  const anchors=[];
+  for(const [li,line] of lines.entries()){
+   if(line.y>=header.bottom)continue;
+   const serial=line.items.find(i=>Math.abs(i.x-header.serial.x)<25&&/^\d+$/.test(i.text));
+   const date=line.items.find(i=>Math.abs(i.x-header.date.x)<25&&rowDate.test(i.text));
+   if(!serial||!date)continue;
+   anchors.push({li,line,serial:Number(serial.text),date:parseDate(date.text)});
+  }
+  const descriptionItems=line=>line.items.filter(i=>i.x>=header.left&&i.x<header.right);
+  const start=a=>a.li>0&&lines[a.li-1].y<header.bottom&&lines[a.li-1].y-a.line.y<=8&&descriptionItems(lines[a.li-1]).length? a.li-1:a.li;
+  for(const [ai,a] of anchors.entries()){
+   const location=`page ${pageIndex+1}, row ${a.serial}`;
+   if(previousSerial!==null&&a.serial!==previousSerial+1)warnings.push(`Numbered rows are not consecutive at ${location}. Check for missing or repeated pages.`);
+   previousSerial=a.serial;
+   const values={};let ambiguous=false;
+   for(const item of a.line.items){
+    if(item.x<header.right||!columnValue.test(item.text))continue;
+    // Values are right-aligned. Using their left edge misreads large deposits as withdrawals.
+    const end=item.x+item.width,nearest=Object.entries(header.columns).sort(([,x],[,y])=>Math.abs(end-x.x-x.width)-Math.abs(end-y.x-y.width))[0];
+    if(Math.abs(end-nearest[1].x-nearest[1].width)>30)continue;
+    if(values[nearest[0]]!==undefined)ambiguous=true;
+    values[nearest[0]]=parseMoney(item.text);
+   }
+   const words=[],stop=anchors[ai+1]?start(anchors[ai+1]):lines.length;
+   let lastY=null;
+   for(let j=start(a);j<stop;j++){
+    const line=lines[j];
+    if(lastY!==null&&lastY-line.y>18)break; // Don't absorb the page footer into the final narration.
+    const parts=descriptionItems(line).map(i=>i.text);
+    if(j!==a.li&&!parts.length)break;
+    words.push(...parts);lastY=line.y;
+   }
+   const description=words.join(' ').replace(/\s+/g,' ').trim(),debit=Math.abs(values.debit||0),credit=Math.abs(values.credit||0),amount=credit-debit;
+   if(!a.date||ambiguous||!description||!amount||(debit&&credit)||!Number.isSafeInteger(values.balance)){invalid.push(location);continue;}
+   transactions.push({id:crypto.randomUUID(),date:a.date,description,amount,balance:values.balance,account,...classify(description,amount,rules),review:true});
+  }
+ }
+ if(!transactions.length)warnings.push('No numbered transactions could be read. Check the original statement.');
+ warnings.push('PDF extraction is provisional. All PDF transactions are marked for review.');
+ const text=pages.flat().map(lineText).join(' ');
+ return {transactions,invalid,warnings,period:findPeriod(text),openingHint:summaryAmount(text,'opening'),closingHint:summaryAmount(text,'closing')};
 }
 function parseBankLines(pages,account,rules){const transactions=[],invalid=[],warnings=[],text=[];let headers=null,datedRows=0;
  for(let pageIndex=0;pageIndex<pages.length;pageIndex++){const lines=pages[pageIndex];
