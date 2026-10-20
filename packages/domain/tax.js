@@ -42,7 +42,8 @@ function suggest(t){
  if(c==='Loan EMI')return /education loan|edu(?:cation)? ?loan/i.test(d)?'80e':/home loan|\bhsg\b|housing/i.test(d)?'24b':null;
  if(c==='Rent')return 'rent-paid';
  if(c==='Fees & charges'&&/^(?:[cis]?gst)\b|\bgst on\b/i.test(d))return 'gst-paid';
- if(c==='Taxes'&&/stamp duty/i.test(d))return null;
+ // Stamp duty and STT on fund transactions are not income tax.
+ if(c==='Taxes'&&/stamp duty|^stt\b/i.test(d))return null;
  if(c==='Taxes')return /\bgst\b|\bcbic\b/i.test(d)?'gst-paid':/property tax|professional tax/i.test(d)?null:'tax-paid';
  return null;
 }

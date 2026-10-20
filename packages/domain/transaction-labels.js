@@ -38,7 +38,7 @@ export function transactionLabel(transaction,rules=[]){
  else if(/\b(?:credit card payment|cc payment)\b/i.test(raw))title='Credit card payment';
  else if(transaction.type==='Transfer'&&transaction.amount>0&&/payment received|thank you for (?:the |your )?payment|netbanking transfer|bbps payment|autopay/i.test(raw))title='Card bill payment';
  else if(/wallet load|wallet top-?up|load(?:ed)? (?:to |money )?wallet/i.test(raw)){const merchant=merchants.find(([,pattern])=>pattern.test(raw))?.[0];title=merchant?merchant+' wallet top-up':'Wallet top-up';}
- else if(/^(?:stamp duty|(?:sip |additional |new )?purchase|sip|redemption|switch[ -]?(?:in|out)|stp[ -]?(?:in|out)|swp|dividend (?:payout|reinvestment)) · /i.test(raw)){const [kind,scheme]=raw.split(' · ');title=`${scheme.replace(/\s*-\s*(?:regular|direct)\b.*$/i,'').trim()} · ${kind}`;}
+ else if(/^(?:stamp duty|stt|tds|(?:(?:sip |additional |new )?purchase|sip|redemption|switch[ -]?(?:in|out)|stp[ -]?(?:in|out)|swp|dividend (?:payout|reinvestment))(?: reversal)?) · /i.test(raw)){const [kind,scheme]=raw.split(' · ');title=`${scheme.replace(/\s*-\s*(?:regular|direct)\b.*$/i,'').trim()} · ${kind.replace(/ reversal$/i,'')}`;}
  else if(/\bfinance charges?\b|\binterest charges?\b/i.test(raw))title='Finance charges';
  else if(/\blate (?:payment )?fee\b/i.test(raw))title='Late payment fee';
  else if(/\bmark-?up fee\b|\bforex (?:fee|markup)\b|\bcross[- ]currency\b/i.test(raw))title='Foreign currency markup';

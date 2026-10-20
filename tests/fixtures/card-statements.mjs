@@ -1,12 +1,24 @@
 // Synthetic credit card statements modelled on Indian bank layouts. No real customer data.
 // makePDF writes positioned Helvetica text so tests exercise pdf.js extraction, not hand-built line objects.
-export function makePDF(pages){
- const esc=t=>t.replace(/[\\()]/g,c=>'\\'+c),objects=['<< /Type /Catalog /Pages 2 0 R >>',null,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'],kids=[];
- for(const items of pages){const stream=items.map(([x,y,text,size=8])=>`BT /F1 ${size} Tf 1 0 0 1 ${x} ${y} Tm (${esc(text)}) Tj ET`).join('\n');
-  objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${objects.length} 0 R >>`);kids.push(`${objects.length} 0 R`);}
- objects[1]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${kids.length} >>`;
- let out='%PDF-1.4\n';const offsets=[];objects.forEach((o,i)=>{offsets.push(Buffer.byteLength(out));out+=`${i+1} 0 obj\n${o}\nendobj\n`;});
- const xref=Buffer.byteLength(out);out+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+// With a password the content is encrypted (standard security handler, RC4, revision 2), like a bank's or CAS PDF.
+import {createHash} from 'node:crypto';
+const md5=(...parts)=>createHash('md5').update(Buffer.concat(parts)).digest();
+function rc4(key,data){const S=[...Array(256).keys()];for(let i=0,j=0;i<256;i++){j=(j+S[i]+key[i%key.length])&255;[S[i],S[j]]=[S[j],S[i]];}
+ const out=Buffer.alloc(data.length);for(let k=0,i=0,j=0;k<data.length;k++){i=(i+1)&255;j=(j+S[i])&255;[S[i],S[j]]=[S[j],S[i]];out[k]=data[k]^S[(S[i]+S[j])&255];}return out;}
+function encryption(password){
+ const PAD=Buffer.from('28bf4e5e4e758a4164004e56fffa01082e2e00b6d0683e802f0ca9fe6453697a','hex'),pad=p=>Buffer.concat([Buffer.from(p,'latin1'),PAD]).subarray(0,32);
+ const owner=rc4(md5(pad(password+'-owner')).subarray(0,5),pad(password)),perms=Buffer.alloc(4),id=md5(Buffer.from('ledger synthetic statement'));perms.writeInt32LE(-4);
+ const key=md5(pad(password),owner,perms,id).subarray(0,5),hex=b=>b.toString('hex');
+ return {id:hex(id),dictionary:`<< /Filter /Standard /V 1 /R 2 /O <${hex(owner)}> /U <${hex(rc4(key,PAD))}> /P -4 >>`,
+  stream:(object,text)=>rc4(md5(key,Buffer.from([object&255,object>>8&255,object>>16&255,0,0])).subarray(0,10),Buffer.from(text,'latin1')).toString('latin1')};
+}
+export function makePDF(pages,{password}={}){
+ const esc=t=>t.replace(/[\\()]/g,c=>'\\'+c),objects=['<< /Type /Catalog /Pages 2 0 R >>',null,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'],kids=[],crypt=password&&encryption(password);
+ for(const items of pages){let stream=items.map(([x,y,text,size=8])=>`BT /F1 ${size} Tf 1 0 0 1 ${x} ${y} Tm (${esc(text)}) Tj ET`).join('\n');if(crypt)stream=crypt.stream(objects.length+1,stream);
+  objects.push(`<< /Length ${Buffer.byteLength(stream,'latin1')} >>\nstream\n${stream}\nendstream`);objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${objects.length} 0 R >>`);kids.push(`${objects.length} 0 R`);}
+ objects[1]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${kids.length} >>`;if(crypt)objects.push(crypt.dictionary);
+ let out='%PDF-1.4\n';const offsets=[];objects.forEach((o,i)=>{offsets.push(Buffer.byteLength(out,'latin1'));out+=`${i+1} 0 obj\n${o}\nendobj\n`;});
+ const xref=Buffer.byteLength(out,'latin1');out+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n${offsets.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')}trailer\n<< /Size ${objects.length+1} /Root 1 0 R${crypt?` /Encrypt ${objects.length} 0 R /ID [<${crypt.id}> <${crypt.id}>]`:''} >>\nstartxref\n${xref}\n%%EOF\n`;
  return Buffer.from(out,'latin1');
 }
 // HDFC-style: summary labels in one row with values underneath, "Cr" attached or separate, wrapped description.

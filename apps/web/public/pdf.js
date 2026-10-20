@@ -1,4 +1,5 @@
 import {parseDate,parseMoney,classify,findPeriod,cardAmount,cardBalance,looksLikeCardStatement} from './core.js';
+import {looksLikeCAS,parseCASLines} from './cas.js';
 export function extractPageLines(items){const lines=[];for(const item of items){if(!item.str?.trim())continue;const y=item.transform[5];let line=lines.find(l=>Math.abs(l.y-y)<3);if(!line){line={y,items:[]};lines.push(line)}line.items.push({text:item.str.trim(),x:item.transform[4],width:item.width||0})}return lines.sort((a,b)=>b.y-a.y).map(l=>({...l,items:l.items.sort((a,b)=>a.x-b.x)}));}
 // Opening balance is the first one printed; per-page closing balances end with the statement's final closing balance.
 const summaryAmount=(text,label)=>{const all=[...text.matchAll(new RegExp(label+String.raw`\s*(?:balance|bal\.?)?\s*:?\s*(?:₹|rs\.?|inr)?\s*(-?[\d,]+\.\d{2}(?:\s*(?:cr|dr)\.?)?)`,'gi'))],m=label==='closing'?all.at(-1):all[0];return m?parseMoney(m[1]):null;};
@@ -74,6 +75,7 @@ export function parseCardLines(pages,account,rules=[]){
 }
 export function parsePDFLines(pages,account,rules=[],{card=false}={}){
  const text=pages.flat().map(lineText).join(' '),cardLike=looksLikeCardStatement(text);
+ if(looksLikeCAS(text))return {...parseCASLines(pages,account),cardLike:false};
  const numbered=parseNumberedBankLines(pages,account,rules);
  if(numbered)return {...numbered,cardLike:false};
  // Separate debit and credit columns are parsed as a bank table, even on a card account.
