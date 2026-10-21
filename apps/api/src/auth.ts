@@ -1,9 +1,9 @@
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
-import { twoFactor } from 'better-auth/plugins/two-factor';
 import { pool } from './database.js';
 import { config } from './config.js';
 import { enqueueEmail } from './mail.js';
+import { twoFactorPlugin, googleTwoFactor } from './two-factor.js';
 import { verificationEmail, resetPasswordEmail } from '../../../packages/domain/emails.js';
 const notInvited=()=>new APIError('FORBIDDEN',{code:'NOT_INVITED',message:'Sign-up is by invitation. This email address has not been invited.'});
 const invited=async(email:string)=>!!(await pool.query('SELECT 1 FROM signup_invites WHERE email=$1',[email.trim().toLowerCase()])).rowCount;
@@ -16,7 +16,7 @@ export const auth=betterAuth({
     sendVerificationEmail:config.mailEnabled?async({user,url})=>enqueueEmail(user.email,verificationEmail({url,origin:config.origin})):undefined},
   socialProviders:config.googleId&&config.googleSecret?{google:{clientId:config.googleId,clientSecret:config.googleSecret,disableSignUp:config.signupMode==='closed'}}:{},
   // Google can be added to an existing account by signing in with it, but only when Google and Ledger have both
-  // verified the same email address. Google sign-in does not ask for Ledger's two-step code.
+  // verified the same email address. Accounts with two-step verification on still enter their code (two-factor.ts).
   account:{accountLinking:{enabled:true,trustedProviders:[],requireLocalEmailVerified:true,allowDifferentEmails:false}},
   // Better Auth answers failed sign-ups with a decoy success (so emails cannot be probed); tell uninvited people plainly instead.
   hooks:{before:createAuthMiddleware(async ctx=>{if(ctx.path==='/sign-up/email'&&config.signupMode==='invite'&&!await invited(String(ctx.body?.email||'')))throw notInvited();})},
@@ -26,8 +26,8 @@ export const auth=betterAuth({
     before:async(user)=>{if(config.signupMode==='closed')throw new APIError('FORBIDDEN',{code:'SIGNUP_CLOSED',message:'New accounts are not being created.'});if(config.signupMode==='invite'&&!await invited(user.email))throw notInvited();return {data:user};},
     after:async(user)=>{await pool.query('UPDATE signup_invites SET accepted_at=now() WHERE email=lower($1) AND accepted_at IS NULL',[user.email]);},
   }}},
-  // Opt-in TOTP with backup codes; failed codes lock the account after repeated attempts.
-  plugins:[twoFactor({issuer:'Ledger',trustDeviceMaxAge:60*60*24*30})],
+  // Opt-in TOTP with backup codes, asked for after password and Google sign-in.
+  plugins:[twoFactorPlugin,googleTwoFactor],
   session:{expiresIn:60*60*24*7,updateAge:60*60*12,cookieCache:{enabled:false}},
   rateLimit:{enabled:true,storage:'database',window:60,max:100,customRules:{
     '/sign-in/email':{window:60,max:10},'/sign-up/email':{window:60,max:5},'/request-password-reset':{window:60,max:5}}},

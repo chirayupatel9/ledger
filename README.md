@@ -67,7 +67,7 @@ The existing `chatgpt.site` URL cannot host these Docker containers. Use this ma
 
 The workspace owner (the first verified account, recorded in `workspace_owners`) manages the list under **Settings → Invitations**. Adding an address emails an invitation with a sign-up link (when email is on). Each invited person gets a separate, empty ledger and cannot see anyone else's. Removing an invitation stops a pending sign-up; it does not delete an account that already exists. The rule is checked when the account is created, so the sign-up form, the API and Google sign-in all obey it. Email/password sign-up also needs email delivery, because the address must be verified.
 
-Google sign-in notes: it does not ask for Ledger's two-step verification code (the Google account's own security applies). An account created with a password can also sign in with Google: the first Google sign-in links the two, but only when Google and Ledger have both verified the same email address. Different addresses are never linked.
+Google sign-in notes: an account with two-step verification on still enters its authenticator or backup code after Google, exactly as after a password (a device trusted for 30 days skips it). Accounts without two-step verification sign straight in. An account created with a password can also sign in with Google: the first Google sign-in links the two, but only when Google and Ledger have both verified the same email address. Different addresses are never linked.
 
 ## Operations and backups
 
@@ -140,7 +140,7 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transac
 
 ## Security additions
 
-- **Two-step verification** (TOTP with one-time backup codes) at `/security`, linked from **Your account & data**. Sign-in then asks for an authenticator code; devices can be trusted for 30 days; repeated wrong codes lock the account temporarily.
+- **Two-step verification** (TOTP with one-time backup codes) at `/security`, linked from **Your account & data**. Sign-in, by password or Google, then asks for an authenticator code; devices can be trusted for 30 days; repeated wrong codes lock the account temporarily.
 - Overview shows a reminder until two-step verification is turned on.
 - Caddy sends a Content-Security-Policy with `default-src 'self'` and `connect-src 'self'`, so injected script cannot send data to another origin.
 
