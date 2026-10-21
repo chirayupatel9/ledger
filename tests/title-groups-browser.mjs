@@ -65,7 +65,7 @@ try{
  assert.deepEqual((await rules()).at(-1),['title','Zomato','Swiggy']);
 
  // 7. One transaction corrected on its own, then that title renamed: your own title changes, no rule is added.
- await group('swiggy').locator('[data-open-group]').click();await page.locator('[data-edit-title="sw1"]').click();await page.locator('#title-edit-form [name="title"]').fill('Team lunch');
+ const opener=group('swiggy').locator('[data-open-group]');assert.equal(await opener.getAttribute('aria-expanded'),'true','a group renamed in place stays open');await page.locator('[data-edit-title="sw1"]').click();await page.locator('#title-edit-form [name="title"]').fill('Team lunch');
  await page.getByRole('button',{name:'Save title'}).click();await toast.getByText('Transaction title saved').waitFor();assert.match(await group('swiggy').innerText(),/4 transactions/);
  const before=(await rules()).length;await rename('team lunch','Office lunch','1 transaction renamed to “Office lunch”');
  data=await get();assert.equal(data.state.transactions.find(t=>t.id==='sw1').displayName,'Office lunch');assert.equal(data.state.titleRules.length,before);
