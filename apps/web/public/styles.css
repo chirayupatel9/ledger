@@ -283,3 +283,15 @@ select option:checked{background-color:var(--surface-4)}
  select optgroup legend,select optgroup>:first-child:not(option){padding:0 10px}
  :root[data-theme=dark] ::picker(select){box-shadow:0 14px 34px rgba(0,0,0,.55)}
 }
+/* A title on the Titles page is edited where it is: click it (or Edit title) and type. */
+.title-group-name{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:3px 7px;margin:-3px -7px;border-radius:6px;background:none;color:inherit;font:inherit;text-align:left;cursor:text}
+.title-group-name strong{display:inline;min-width:0;overflow-wrap:anywhere}
+.title-group-name svg{flex:none;color:var(--text-3);opacity:0;transition:opacity .12s}
+.title-group-name:hover,.title-group-name:focus-visible{background:var(--surface-3)}
+.title-group-name:hover svg,.title-group-name:focus-visible svg{opacity:1}
+@media (hover:none){.title-group-name svg{opacity:.7}}
+.title-inline{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:center}
+.title-inline .input{font-size:.8125rem;font-weight:600}
+.title-inline .bank-actions{margin:0}
+.title-inline :is(.sub,.notice){grid-column:1/-1;margin:0}
+@media(max-width:650px){.title-inline{grid-template-columns:1fr}}
