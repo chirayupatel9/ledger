@@ -91,7 +91,7 @@ try{
  assert.match(csv,/"Deduction \(old regime\)","80C"/);assert.match(csv,/"Income","Salaries","Salary","1","1","50000.00"/);
  mkdirSync('playwright-results',{recursive:true});await page.screenshot({path:'playwright-results/reports-tax.png',fullPage:true});
  await page.locator('nav [data-page="statements"]').click();await page.screenshot({path:'playwright-results/statements-books.png',fullPage:true});
- await page.setViewportSize({width:390,height:844});for(const p of ['statements','transactions','reports']){await page.locator(`nav [data-page="${p}"]`).click();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,p+' fits mobile');}
+ await page.setViewportSize({width:390,height:844});for(const p of ['statements','transactions','reports']){const link=page.locator(`nav [data-page="${p}"]`);if(await link.isVisible())await link.click();else{await page.locator('nav .nav-more').click();await page.locator(`#modal [data-more-page="${p}"]`).click();}await page.waitForURL(new RegExp('/'+p));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,p+' fits mobile');}
  await page.screenshot({path:'playwright-results/reports-mobile.png',fullPage:true});
 
  // 8a. Credit card PDF: unsigned charges, Cr credits, amount due reconciles, balances shown as amounts due.

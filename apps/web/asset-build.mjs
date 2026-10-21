@@ -8,7 +8,8 @@ export function prepareAssets(publicDir){
  const files=[];
  function visit(dir,relative=''){
   for(const entry of readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){
-   if(!relative&&entry.name==='assets')continue;
+   // ocr/ is the versioned bill reader, served from its own fixed folder (see public/ocr.js).
+   if(!relative&&(entry.name==='assets'||entry.name==='ocr'))continue;
    const name=path.posix.join(relative,entry.name),file=path.join(dir,entry.name);
    if(entry.isDirectory())visit(file,name);
    else if(entry.isFile()&&/\.(?:m?js|css)$/.test(entry.name))files.push([name,readFileSync(file)]);

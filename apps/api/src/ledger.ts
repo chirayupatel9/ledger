@@ -21,13 +21,15 @@ export class LedgerService{
    if(before.revision!==input.revision)return {conflict:true,...shape(before)};
    if(before.state.schemaVersion===2&&!Array.isArray(input.state?.accounts))throw new HttpException('This page uses an older ledger format. Reload the page before saving.',400);
    // Older open tabs and older exports must not silently erase newer account preferences/rules.
-   state=validateLedger({...input.state,preferences:input.state?.preferences===undefined?before.state.preferences:input.state.preferences,titleRules:input.state?.titleRules===undefined?before.state.titleRules:input.state.titleRules,customCategories:input.state?.customCategories===undefined?before.state.customCategories:input.state.customCategories,categoryOverrides:input.state?.categoryOverrides===undefined?before.state.categoryOverrides:input.state.categoryOverrides,fundMatches:input.state?.fundMatches===undefined?before.state.fundMatches:input.state.fundMatches});
+   state=validateLedger({...input.state,preferences:input.state?.preferences===undefined?before.state.preferences:input.state.preferences,titleRules:input.state?.titleRules===undefined?before.state.titleRules:input.state.titleRules,customCategories:input.state?.customCategories===undefined?before.state.customCategories:input.state.customCategories,categoryOverrides:input.state?.categoryOverrides===undefined?before.state.categoryOverrides:input.state.categoryOverrides,fundMatches:input.state?.fundMatches===undefined?before.state.fundMatches:input.state.fundMatches,receipts:input.state?.receipts===undefined?before.state.receipts:input.state.receipts});
    const {rows:files}=await client.query('SELECT id FROM files WHERE owner=$1',[owner]);
    const owned=new Set(files.map(f=>f.id));
-   if(state.statements.some(s=>s.fileId&&!owned.has(s.fileId)))throw new HttpException('An original file is missing or belongs to another account.',400);
-   const retained=new Set(state.statements.map(s=>s.fileId).filter(Boolean));
-   const removed=new Set<string>(before.state.statements.map((s:any)=>s.fileId).filter((id:string)=>id&&!retained.has(id)));
-   if(state.initialized&&!state.transactions.length&&!state.statements.length&&!state.rules.length)for(const f of files)removed.add(f.id);
+   // Files are statement originals and receipt photos (on transactions, or waiting in the receipts inbox).
+   const fileIds=(s:any)=>[...(s.statements||[]).map((x:any)=>x.fileId),...(s.transactions||[]).flatMap((t:any)=>(t.receipts||[]).map((r:any)=>r.id)),...(s.receipts||[]).map((r:any)=>r.fileId)].filter(Boolean);
+   if(fileIds(state).some(f=>!owned.has(f)))throw new HttpException('An original file or receipt is missing or belongs to another account.',400);
+   const retained=new Set(fileIds(state));
+   const removed=new Set<string>(fileIds(before.state).filter((id:string)=>!retained.has(id)));
+   if(state.initialized&&!state.transactions.length&&!state.statements.length&&!state.rules.length&&!state.receipts.length)for(const f of files)removed.add(f.id);
    const {rows}=await client.query('UPDATE ledgers SET state=$2,revision=revision+1,updated_at=now() WHERE owner=$1 RETURNING *',[owner,JSON.stringify(state)]);
    if(removed.size)await client.query('DELETE FROM files WHERE owner=$1 AND id=ANY($2::text[])',[owner,[...removed]]);
    await client.query('INSERT INTO activity(owner,action,detail) VALUES($1,$2,$3)',[owner,typeof input.action==='string'?input.action.slice(0,100):'Ledger updated',JSON.stringify({transactions:state.transactions.length,statements:state.statements.length,revision:rows[0].revision})]);
@@ -37,8 +39,10 @@ export class LedgerService{
  async upload(owner:string,id:string,file:Express.Multer.File){
   if(!file||!id||!/^[a-zA-Z0-9-]{1,100}$/.test(id))throw new HttpException('Select a statement file.',400);
   if(!file.size)throw new HttpException('The statement file is empty.',400);
-  const ext=file.originalname.match(/\.(pdf|csv|tsv|xlsx|xls)$/i)?.[1].toLowerCase();
-  if(!ext)throw new HttpException('Only PDF, CSV, TSV, XLS, and XLSX files are supported.',400);
+  const ext=file.originalname.match(/\.(pdf|csv|tsv|xlsx|xls|jpe?g|png|webp)$/i)?.[1].toLowerCase().replace('jpeg','jpg');
+  if(!ext)throw new HttpException('Only PDF, CSV, TSV, XLS, XLSX and photos (JPG, PNG, WebP) are supported.',400);
+  const head=file.buffer.subarray(0,12);
+  if((ext==='jpg'&&head.subarray(0,3).toString('hex')!=='ffd8ff')||(ext==='png'&&head.subarray(0,4).toString('hex')!=='89504e47')||(ext==='webp'&&(head.subarray(0,4).toString()!=='RIFF'||head.subarray(8,12).toString()!=='WEBP')))throw new HttpException('This file does not appear to be a photo.',400);
   if(ext==='pdf'&&file.buffer.subarray(0,5).toString()!=='%PDF-')throw new HttpException('This file does not appear to be a PDF.',400);
   if(ext==='xlsx'&&file.buffer.subarray(0,4).toString('hex')!=='504b0304')throw new HttpException('This file does not appear to be an XLSX workbook.',400);
   return transaction(async client=>{
@@ -46,7 +50,7 @@ export class LedgerService{
    const prior=await client.query('SELECT id,name,mime,size FROM files WHERE owner=$1 AND id=$2',[owner,id]);if(prior.rowCount)return prior.rows[0];
    const usage=await client.query('SELECT count(*)::int AS count,coalesce(sum(size),0)::bigint AS bytes FROM files WHERE owner=$1',[owner]);
    if(usage.rows[0].count>=2000||Number(usage.rows[0].bytes)+file.size>1024**3)throw new HttpException('Account storage limit reached (1 GiB / 2,000 files).',413);
-   const name=file.originalname.replace(/[\r\n\x00-\x1f]/g,'').slice(0,255),mime=({pdf:'application/pdf',csv:'text/csv',tsv:'text/tab-separated-values',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel'} as Record<string,string>)[ext];
+   const name=file.originalname.replace(/[\r\n\x00-\x1f]/g,'').slice(0,255),mime=({pdf:'application/pdf',csv:'text/csv',tsv:'text/tab-separated-values',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel',jpg:'image/jpeg',png:'image/png',webp:'image/webp'} as Record<string,string>)[ext];
    await client.query('INSERT INTO files(owner,id,name,mime,size,data) VALUES($1,$2,$3,$4,$5,$6)',[owner,id,name,mime,file.size,file.buffer]);
    return {id,name,mime,size:file.size};
   });

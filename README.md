@@ -201,6 +201,18 @@ Each fund is valued at today's official NAV from AMFI when it is matched to an A
 
 Live check (synthetic disposable account; the page runs against a stubbed NAV source, and the real endpoints are checked against AMFI data): `PLAYWRIGHT_MODULE=… node tests/nav-browser.mjs`.
 
+## On your phone: the app, UPI messages and bill photos
+
+**Install.** Ledger is a progressive web app (`app/manifest.ts`, `public/sw.js`). On Android, open it in Chrome and choose *Install app*; on iPhone, Safari → Share → *Add to Home Screen*. Settings → *Ledger on your phone* shows the right steps and an *Install* button when the browser offers one. The phone bar holds Overview, Transactions, **Add**, Investments and More (the other pages).
+
+**Add from a UPI or bank message.** Paste an SMS or app notification (HDFC, ICICI, SBI, Axis, Kotak and card formats, GPay/PhonePe notifications). `packages/domain/capture.js` reads the amount, direction, account (by its last digits), date, payee and UPI reference. The same UPI reference is a certain match; otherwise the same amount within three days, named account first. A match gets the payee as its name and the reference; with no match, the payment is added now (`source: "message"`, no statement) and the statement's own row replaces it on import, keeping its name, note, tax tag and receipts. The message itself is not stored.
+
+**Add a photo of a bill.** Take or choose a photo; it is shrunk to a JPEG and read **on the device** with Tesseract (served from `public/ocr/tesseract-7.0.0/`, about 7 MB, downloaded the first time a bill is read and kept by the service worker). Ledger finds the total, date and shop, suggests the payment (same amount within a rupee, within five days) and attaches the photo as a receipt, stored privately with `POST /api/files` and deleted when it is removed from every transaction. A bill whose payment has not arrived yet waits in the inbox (shown on the overview) or can be added as a new payment.
+
+**Share to Ledger (Android).** The installed app is a share target: share a bank SMS or a bill photo to Ledger and it opens in Add. The service worker keeps the shared item on the device until the page picks it up; if it is not running yet (first launch), Ledger asks to share again.
+
+Security notes: the CSP allows `'wasm-unsafe-eval'` (WebAssembly compilation only, needed by the bill reader), and `Permissions-Policy` allows the camera for Ledger itself only (`camera=(self)`). The service worker never caches `/api` responses or pages.
+
 ## Statements that cannot be read
 
 When an import fails, Ledger emails `IMPORT_ALERT_EMAIL` (set in `.env`; currently the owner's Gmail) so the parser can be extended. It reports:

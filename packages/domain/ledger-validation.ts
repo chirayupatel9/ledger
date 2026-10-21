@@ -3,13 +3,16 @@ import {categories,parseDate} from './core.js';
 import {taxTagIds} from './tax.js';
 import {normalizeTransfers} from './transfers.js';
 import {defaultPreferences} from './preferences.js';
-export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;fundMatches:{scheme:string;code:number|null}[]};
+export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;fundMatches:{scheme:string;code:number|null}[];receipts:any[]};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
 const string=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max;
 const id=(v:unknown)=>typeof v==='string'&&/^[a-zA-Z0-9-]{1,100}$/.test(v);
 const paise=(v:unknown)=>v===undefined||(Number.isSafeInteger(v)&&Math.abs(v as number)<=1e14);
 const day=(v:unknown)=>v===undefined||(typeof v==='string'&&parseDate(v)===v);
+// A receipt is a photo stored with POST /api/files; ledger.ts checks the file exists and belongs to this person.
+const receipt=(r:any)=>r&&id(r.id)&&string(r.name,255)&&string(r.addedAt,40)&&Number.isFinite(Date.parse(r.addedAt));
+const sources=['message','receipt'];
 export function validateLedger(input:any):LedgerState{
  if(!input||!Array.isArray(input.transactions)||!Array.isArray(input.statements)||!Array.isArray(input.rules))fail('Invalid ledger data.');
  if(input.transactions.length>25000||input.statements.length>2000||input.rules.length>500)fail('This ledger exceeds the supported limit (25,000 transactions, 2,000 statements, 500 rules).');
@@ -49,9 +52,9 @@ export function validateLedger(input:any):LedgerState{
  });
  const allowed=new Set<string>([...categories,...customCategories.map((c:any)=>c.name)]);
  const transactions=input.transactions.map((t:any)=>{
-  if(!t||!id(t.id)||tids.has(t.id)||!string(t.date,10)||parseDate(t.date)!==t.date||!string(t.description,4000)||!t.description.trim()||!string(t.account,160)||!t.account.trim()||!aids.has(t.accountId)||statementMap.get(t.statementId)?.accountId!==t.accountId||!Number.isSafeInteger(t.amount)||t.amount===0||Math.abs(t.amount)>1e14||!allowed.has(t.category)||!['Income','Expense','Transfer','Refund'].includes(t.type)||!sids.has(t.statementId)||(t.note!==undefined&&!string(t.note,4000))||(t.displayName!==undefined&&!string(t.displayName,160))||!paise(t.balance)||(t.taxTag!==undefined&&t.taxTag!==''&&!taxTagIds.includes(t.taxTag))||(t.transferId!==undefined&&!id(t.transferId))||(t.ref!==undefined&&!(typeof t.ref==='string'&&/^[A-Za-z0-9-]{1,40}$/.test(t.ref))))fail('Invalid transaction. Check dates, amounts, categories, and statement references.');
+  if(!t||!id(t.id)||tids.has(t.id)||!string(t.date,10)||parseDate(t.date)!==t.date||!string(t.description,4000)||!t.description.trim()||!string(t.account,160)||!t.account.trim()||!aids.has(t.accountId)||(t.source!==undefined&&(!sources.includes(t.source)||t.statementId!==undefined))||(t.source===undefined&&statementMap.get(t.statementId)?.accountId!==t.accountId)||!Number.isSafeInteger(t.amount)||t.amount===0||Math.abs(t.amount)>1e14||!allowed.has(t.category)||!['Income','Expense','Transfer','Refund'].includes(t.type)||(t.source===undefined&&!sids.has(t.statementId))||(t.receipts!==undefined&&(!Array.isArray(t.receipts)||t.receipts.length>5||!t.receipts.every(receipt)))||(t.note!==undefined&&!string(t.note,4000))||(t.displayName!==undefined&&!string(t.displayName,160))||!paise(t.balance)||(t.taxTag!==undefined&&t.taxTag!==''&&!taxTagIds.includes(t.taxTag))||(t.transferId!==undefined&&!id(t.transferId))||(t.ref!==undefined&&!(typeof t.ref==='string'&&/^[A-Za-z0-9-]{1,40}$/.test(t.ref))))fail('Invalid transaction. Check dates, amounts, categories, and statement references.');
   if((t.type==='Expense'&&t.amount>0)||(['Income','Refund'].includes(t.type)&&t.amount<0))fail('Transaction type does not match its amount direction.');
-  tids.add(t.id);counts[t.statementId]=(counts[t.statementId]||0)+1;return {id:t.id,date:t.date,description:t.description,amount:t.amount,account:accountMap.get(t.accountId).name,accountId:t.accountId,category:t.category,type:t.type,review:!!t.review,statementId:t.statementId,...(t.note?{note:t.note}:{}),...(t.displayName?.trim()?{displayName:t.displayName.trim()}:{}),...(t.balance!==undefined?{balance:t.balance}:{}),...(t.taxTag?{taxTag:t.taxTag}:{}),...(t.transferId?{transferId:t.transferId}:{}),...(t.ref?{ref:t.ref}:{})};
+  tids.add(t.id);if(t.statementId)counts[t.statementId]=(counts[t.statementId]||0)+1;return {id:t.id,date:t.date,description:t.description,amount:t.amount,account:accountMap.get(t.accountId).name,accountId:t.accountId,category:t.category,type:t.type,review:!!t.review,...(t.source?{source:t.source}:{statementId:t.statementId}),...(t.receipts?.length?{receipts:t.receipts.map((r:any)=>({id:r.id,name:r.name,addedAt:r.addedAt}))}:{}),...(t.note?{note:t.note}:{}),...(t.displayName?.trim()?{displayName:t.displayName.trim()}:{}),...(t.balance!==undefined?{balance:t.balance}:{}),...(t.taxTag?{taxTag:t.taxTag}:{}),...(t.transferId?{transferId:t.transferId}:{}),...(t.ref?{ref:t.ref}:{})};
  });
  // A link survives only as two Transfer legs of equal and opposite amounts in different accounts.
  normalizeTransfers(transactions);
@@ -69,6 +72,9 @@ export function validateLedger(input:any):LedgerState{
   if(matches.has(key))fail('A title rule already uses that match. Edit the existing rule.');
   ruleIds.add(r.id);matches.add(key);return {id:r.id,mode:r.mode,keyword,title:r.title.trim()};
  });
+ // Bill photos kept for later, until a transaction for them turns up.
+ if(input.receipts!==undefined&&(!Array.isArray(input.receipts)||input.receipts.length>200))fail('Up to 200 receipts can wait to be matched.');
+ const receipts=(input.receipts||[]).map((r:any)=>{if(!r||!id(r.id)||!id(r.fileId)||!string(r.name,255)||!string(r.addedAt,40)||(r.merchant!==undefined&&!string(r.merchant,120))||(r.total!==undefined&&!(Number.isSafeInteger(r.total)&&r.total>0&&r.total<=1e14))||!day(r.date))fail('Invalid receipt.');return {id:r.id,fileId:r.fileId,name:r.name,addedAt:r.addedAt,...(r.merchant?{merchant:r.merchant}:{}),...(r.total?{total:r.total}:{}),...(r.date?{date:r.date}:{})};});
  // The AMFI scheme you chose for a fund scheme in your reports (code null: do not match it). One choice per scheme name.
  if(input.fundMatches!==undefined&&!Array.isArray(input.fundMatches))fail('Invalid fund matches.');
  if(input.fundMatches?.length>500)fail('Up to 500 fund matches are supported.');
@@ -78,5 +84,5 @@ export function validateLedger(input:any):LedgerState{
   const scheme=m.scheme.trim().replace(/\s+/g,' ');if(schemes.has(scheme.toLowerCase()))fail('A fund is matched twice. Refresh and retry.');
   schemes.add(scheme.toLowerCase());return {scheme,code:m.code};
  });
- return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches};
+ return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches,receipts};
 }
