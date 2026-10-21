@@ -261,3 +261,5 @@ select option:checked{background-color:var(--surface-4)}
 .period select{padding:2px 22px 2px 0!important;background-position:calc(100% - 9px) calc(50% + 1px),calc(100% - 4px) calc(50% + 1px)}
 .import-table select{padding:6px 26px 6px 6px!important;background-position:calc(100% - 13px) calc(50% + 1px),calc(100% - 8px) calc(50% + 1px)}
 :root[data-theme=dark] select{border-color:var(--line-strong)}
+/* Text boxes take the theme's focus ring (the browser's own is white in dark mode). */
+:is(input,textarea,.input):focus-visible{outline:2px solid var(--green);outline-offset:1px}
