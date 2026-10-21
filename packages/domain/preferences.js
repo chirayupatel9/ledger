@@ -16,6 +16,8 @@ export function cardLayout(kind,prefs){const cards=kind==='dashboard'?dashboardC
  return [...order.map(id=>cards.find(c=>c.id===id)).filter(Boolean),...cards.filter(c=>!order.includes(c.id))].map(c=>({...c,visible:kind==='dashboard'?prefs?.[c.pref]!==false:!hidden.has(c.id)}));}
 export function preferencesFor(value){return {...defaultPreferences,...value};}
 export function titleRuleMatches(rule,transaction){
+ // “Automatic title is” rules (mode title) are applied by transactionLabel, after it works out the automatic title.
+ if(rule.mode==='title')return false;
  const text=transaction.description.trim().replace(/\s+/g,' ').toLowerCase(),keyword=rule.keyword.trim().replace(/\s+/g,' ').toLowerCase();
  return !!keyword&&(rule.mode==='exact'?text===keyword:text.includes(keyword));
 }

@@ -236,3 +236,13 @@ button.kit-tip-row:hover{background:#ffffff1a}
 :root[data-theme=dark] :is(.kit-go:hover,.kit-go:focus-visible,.category-legend button.category-line:hover,.kit-legend-list button:hover){background:#1b2823}
 :root[data-theme=dark] .kit-hit.on{fill:rgba(143,201,172,.08)}
 @media print{.kit-tip{display:none}.kit-go .kit-bar-head span::after{content:''}}
+/* Titles grouped by title, each with its transactions */
+.title-group+.title-group,.title-group>.title-row{border-top:1px solid var(--border)}
+.title-group>.title-row{border-top:0}
+.title-group+.title-group{margin:0}
+.title-group-items .title-row{padding-left:42px;background:#fafbf8}
+.title-group-items .title-row-copy strong{font-size:.75rem;font-weight:500}
+.title-more-note{padding:10px 22px 14px 42px}
+:root[data-theme=dark] .title-group-items .title-row{background:#131d19}
+:root[data-theme=dark] .title-group+.title-group{border-color:#22302a}
+@media(max-width:650px){.title-group-items .title-row{padding-left:24px}.title-more-note{padding-left:24px}}

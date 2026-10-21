@@ -107,5 +107,11 @@ export function transactionLabel(transaction,rules=[]){
   else if(channel==='ATM')title='ATM transaction';
  }
  if(event&&title)title=event+' · '+title;
- return {title:title||shorten(raw)||'Transaction',source:title&&title!==raw?'Suggested label':raw.length>72?'Shortened narration':'Bank narration',channel,...extra};
+ const auto={title:title||shorten(raw)||'Transaction',source:title&&title!==raw?'Suggested label':raw.length>72?'Shortened narration':'Bank narration',channel,...extra};
+ // A rule on the automatic title (“Self transfer” → “Between my accounts”) renames every transaction that gets it, now and later.
+ const alias=rules.find(r=>r.mode==='title'&&sameTitle(r.keyword,auto.title));
+ return alias?{...auto,title:alias.title,source:'Title rule'}:auto;
 }
+export const sameTitle=(a,b)=>String(a??'').trim().replace(/\s+/g,' ').toLowerCase()===String(b??'').trim().replace(/\s+/g,' ').toLowerCase();
+// The title Ledger would give a transaction on its own, without your titles or naming rules.
+export const automaticTitle=t=>transactionLabel({...t,displayName:''},[]).title;

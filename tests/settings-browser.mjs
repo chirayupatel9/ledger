@@ -49,17 +49,17 @@ try{
  await rule.locator('[name="keyword"]').fill('netflixupi');await rule.locator('[name="title"]').fill('Netflix subscription');await page.locator('#title-rule-preview').getByText('3 matching transactions').waitFor();
  await rule.getByRole('button',{name:'Save naming rule'}).click();await page.locator('#toast').getByText('Naming rule saved').waitFor();
  assert.deepEqual((await state()).state.titleRules.map(r=>[r.mode,r.keyword,r.title]),[['contains','netflixupi','Netflix subscription']]);
- assert.equal(await page.locator('[data-title-row] strong').filter({hasText:'Netflix subscription'}).count(),3);
+ assert.match(await page.locator('[data-title-group="netflix subscription"]').innerText(),/3 transactions/,'one row for the title, with its three transactions');
  await page.locator('#new-title-rule').click();await rule.locator('[name="keyword"]').fill('upi/dr');await rule.locator('[name="title"]').fill('Generic UPI');await rule.getByRole('button',{name:'Save naming rule'}).click();await page.locator('.title-rule-row').nth(1).waitFor();
  const second=(await state()).state.titleRules[1].id;await page.locator(`[data-rule-up="${second}"]`).click();await page.locator('#toast').getByText('Naming rule priority updated').waitFor();
- assert.equal(await page.locator('[data-title-row="n0"] strong').innerText(),'Generic UPI','the first matching rule wins');
+ assert.match(await page.locator('[data-title-group="generic upi"]').innerText(),/3 transactions/,'the first matching rule wins');
  page.once('dialog',d=>d.accept());await page.locator(`[data-rule-delete="${second}"]`).click();await page.locator('#toast').getByText('Naming rule removed').waitFor();
- assert.equal(await page.locator('[data-title-row="n0"] strong').innerText(),'Netflix subscription');
+ await page.locator('[data-title-group="netflix subscription"]').waitFor();
 
  // 5. Individual corrections win over rules and keep the original narration.
- await page.locator('[data-edit-title="amz"]').click();await page.locator('#title-edit-form [name="title"]').fill('Amazon groceries');await page.getByRole('button',{name:'Save title'}).click();await page.locator('#toast').getByText('Transaction title saved').waitFor();
+ await page.locator('#title-search').fill('amazon');await page.locator('[data-title-group] [data-open-group]').first().click();await page.locator('[data-edit-title="amz"]').click();await page.locator('#title-edit-form [name="title"]').fill('Amazon groceries');await page.getByRole('button',{name:'Save title'}).click();await page.locator('#toast').getByText('Transaction title saved').waitFor();
  data=await state();assert.equal(data.state.transactions.find(t=>t.id==='amz').displayName,'Amazon groceries');assert.equal(data.state.transactions.find(t=>t.id==='amz').description,'POS AMAZON PAY INDIA');
- await page.locator('#title-search').fill('amazon');assert.equal(await page.locator('[data-title-row]').count(),1);
+ assert.equal(await page.locator('[data-title-group]').count(),1);await page.locator('[data-title-group="amazon groceries"]').waitFor();
  await page.screenshot({path:'playwright-results/titles-dark.png',fullPage:true});
  await page.locator('nav [data-page="transactions"]').click();await page.locator('#search').fill('Netflix subscription');assert.equal(await page.locator('#transaction-results tbody tr').count(),3);await page.locator('#search').fill('');
  const downloading=page.waitForEvent('download');await page.locator('[data-action="export"]').click();let csv='';for await(const c of await (await downloading).createReadStream())csv+=c;

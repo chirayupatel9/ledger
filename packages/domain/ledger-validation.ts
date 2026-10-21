@@ -72,7 +72,7 @@ export function validateLedger(input:any):LedgerState{
  if(input.titleRules?.length>500)fail('Up to 500 title rules are supported.');
  const ruleIds=new Set(),matches=new Set();
  const titleRules=(input.titleRules||[]).map((r:any)=>{
-  if(!r||!id(r.id)||ruleIds.has(r.id)||!['contains','exact'].includes(r.mode)||!string(r.keyword,200)||!r.keyword.trim()||!string(r.title,160)||!r.title.trim())fail('Invalid title rule. Use a match and a title up to 160 characters.');
+  if(!r||!id(r.id)||ruleIds.has(r.id)||!['contains','exact','title'].includes(r.mode)||!string(r.keyword,200)||!r.keyword.trim()||!string(r.title,160)||!r.title.trim())fail('Invalid title rule. Use a match and a title up to 160 characters.');
   const keyword=r.keyword.trim().replace(/\s+/g,' '),key=r.mode+':'+keyword.toLowerCase();
   if(matches.has(key))fail('A title rule already uses that match. Edit the existing rule.');
   ruleIds.add(r.id);matches.add(key);return {id:r.id,mode:r.mode,keyword,title:r.title.trim()};
