@@ -33,7 +33,7 @@ try{
  // 2. Reports: hide the spending calendar, put Top payees first.
  await page.goto(base+'/reports');await page.locator('.board').waitFor();
  await page.locator('[data-action="customize-reports"]').click();await modal.locator('[data-customize="calendar"] input[type="checkbox"]').uncheck();
- for(let i=0;i<4;i++)await modal.locator('[data-customize="payees"] [data-by="-1"]').click();
+ while(await modal.locator('#customize-list li').first().getAttribute('data-customize')!=='payees')await modal.locator('[data-customize="payees"] [data-by="-1"]').click();
  await modal.locator('#customize-save').click();await toast.getByText('Reports layout saved').waitFor();
  assert.equal((await order())[0],'payees');assert.equal(await page.locator('#calendar-card').count(),0);
  state=await ledger();assert.deepEqual(state.preferences.reportsHidden,['calendar']);

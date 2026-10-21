@@ -137,6 +137,19 @@ A UPI narration names the person or shop you paid (or who paid you), their UPI I
 
 Fields are recognised by what they look like (a UPI ID, the 12-digit reference, an IFSC or bank name, even when cut short to fit the column), so the payee becomes the transaction's name ("Ramesh Kumar") and the UPI ID and your note show underneath. Default notes the apps fill in ("UPI", "Payment from PhonePe", "Collect request"…) are not shown. Shops are named by brand, including their legal names (Bundl Technologies → Swiggy, Avenue Supermarts → DMart, Kiranakart → Zepto, One97 → Paytm). With no name in the narration, the UPI ID itself is used; only a narration with neither stays "UPI payment". Your own names and title rules still come first, and the original narration never changes.
 
+## Tags
+
+A transaction can carry any number of tags (up to 20, each up to 40 characters, no commas), for things that cut across categories and accounts: a trip, a project, what you will claim back. Tags match whatever their case, and the spelling already in your ledger is reused.
+
+- **Edit** on a transaction has a Tags box: type a tag and press Enter or a comma (or pick a suggestion); × or Backspace removes one.
+- Select several transactions and use **Add tags…** or **Remove tag…** in the bulk bar.
+- Tags show as chips under the transaction's name. Click one, or use the tag filter, to see every transaction with that tag (or *Untagged*); search also finds `#tag`.
+- **Tags** on Transactions lists every tag with its count and spend, and renames (renaming onto an existing tag merges them), deletes or shows each one.
+- **Spending by tag** on Reports totals each tag for the chosen period and accounts (spent after refunds, and money received). A transaction with several tags counts under each.
+- CSV exports have a `tags` column. Tags are kept when a statement row replaces a transaction added from your phone.
+
+Tags are stored on each transaction (`tags` in the ledger, checked by `validTags` in `packages/domain/tags.js`). Run `tests/tags-browser.mjs` for the live checks.
+
 ## Indian bookkeeping features
 
 - **Imports:** Excel (`.xls`/`.xlsx`, read in the browser with SheetJS), CSV and text-based PDFs. Column detection covers SBI, HDFC, ICICI, Axis and Kotak headers including `DR`/`CR`, `Dr / Cr`, `Withdrawal Amt.` and running balance columns. Excel date cells are read from their serial value, so US date formats cannot swap day and month. Separator, total and footer rows are skipped; unreadable rows that contain figures are still reported.

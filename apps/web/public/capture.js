@@ -93,6 +93,6 @@ export function phoneReplacements(existing,incoming){
  return map;
 }
 export function carryOver(phone,row){
- return {...row,...(phone.displayName?{displayName:phone.displayName}:{}),...(phone.note?{note:phone.note}:{}),...(phone.taxTag?{taxTag:phone.taxTag}:{}),...(phone.receipts?.length?{receipts:phone.receipts}:{}),
+ return {...row,...(phone.displayName?{displayName:phone.displayName}:{}),...(phone.note?{note:phone.note}:{}),...(phone.taxTag?{taxTag:phone.taxTag}:{}),...(phone.receipts?.length?{receipts:phone.receipts}:{}),...(phone.tags?.length?{tags:phone.tags}:{}),
   ...(!phone.review?{category:phone.category,type:phone.type,review:false}:{}),...(phone.transferId?{transferId:phone.transferId,type:'Transfer'}:{})};
 }
