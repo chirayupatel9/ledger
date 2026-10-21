@@ -119,6 +119,8 @@ Transaction rows show a readable label with expandable original bank narration. 
 
 Use **Edit** on a transaction to change its readable name, category, cash-flow type, note, and review status in place. Save/Cancel work on desktop and mobile. Leaving a changed draft asks before discarding it; failed saves retain the draft, and conflicting edits require reviewing the current record before retrying. Date, signed amount, account, and original narration remain tied to the imported statement.
 
+Click a column heading on Transactions (Transaction, Date, Category / type, Status, Amount) to sort by it, and again to reverse it; the **Sort** menu does the same and is the way to sort on a phone. Amount sorts by size, money in or out; name and category sort A–Z; Status puts Needs review first. Sorting works with the filters and search, applies to the CSV export, and is remembered on that device.
+
 To name several at once (for example, from **Needs review**), select them and type a **Title…** in the bulk bar; the selected transactions' current titles are offered as suggestions. It applies together with any category, type, tax tag or tag changes, and *Mark reviewed* decides whether they leave Needs review.
 
 Custom names persist in PostgreSQL as optional transaction metadata. Search matches names, notes, and original reference numbers. CSV exports include both `description` (the bank narration) and `readable_name`; duplicate detection continues to use the original narration. Existing transactions gain readable labels automatically without rewriting their source records.

@@ -188,3 +188,10 @@ button.tag-chip:hover{background:#e1eaf3}
 :root[data-theme=dark] .tag-input{color:#dce6e0}
 @media print{.tag-bar{background:#999}}
 .bulk-bar #bulk-name{flex:1 1 220px}
+/* Sortable column headings on Transactions */
+.sort-head{display:inline-flex;align-items:center;gap:4px;padding:0;background:none;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
+.sort-head span{opacity:.35;font-size:0.6875rem}
+.sort-head:hover span{opacity:.8}
+.sort-head.active{color:var(--green);font-weight:600}
+.sort-head.active span{opacity:1}
+:root[data-theme=dark] .sort-head.active{color:#8fc9ac}
