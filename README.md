@@ -37,7 +37,7 @@ Both ports bind to loopback. PostgreSQL, the API, and the Next.js server have no
 
 ## Application
 
-Indian CSV and text-table PDF imports, preview and column mapping, exact paise amounts, categorization rules, review flags, income/expense summaries, transfers/refunds, duplicate detection, original statement downloads, activity history, and JSON/CSV export are retained. PDF parsing happens in the browser; confirmed data and originals persist in PostgreSQL, not browser storage.
+Indian CSV, Excel, text-table PDF and scanned (image-only) PDF imports, preview and column mapping, exact paise amounts, categorization rules, review flags, income/expense summaries, transfers/refunds, duplicate detection, original statement downloads, activity history, and JSON/CSV export are retained. PDF parsing happens in the browser; confirmed data and originals persist in PostgreSQL, not browser storage.
 
 Email/password signup requires email verification. Better Auth manages password hashing, database sessions, reset tokens, Google OAuth, origin protection, and database-backed authentication throttling. Password resets revoke sessions. API operations derive the owner from the verified session and scope every financial query by that owner. User-supplied ownership and gateway identity headers are ignored. Google and password sign-in are linked only for the same verified email address.
 
@@ -214,6 +214,10 @@ Live check (synthetic disposable account; the page runs against a stubbed NAV so
 **Share to Ledger (Android).** The installed app is a share target: share a bank SMS, a bill photo or a PDF invoice to Ledger and it opens in Add. The service worker keeps the shared item on the device until the page picks it up; if it is not running yet (first launch), Ledger asks to share again.
 
 Security notes: the CSP allows `'wasm-unsafe-eval'` (WebAssembly compilation only, needed by the bill reader), and `Permissions-Policy` allows the camera for Ledger itself only (`camera=(self)`). The service worker never caches `/api` responses or pages.
+
+## Scanned statements
+
+A PDF statement with no text inside (a scan, or a statement printed to images) is read **on the device** with the same Tesseract OCR as bill photos. Each page (up to 20) is drawn with pdf.js and read word by word; the words are grouped into rows by position and passed to the normal bank and card parsers, so column detection, running balances and the opening/closing reconciliation work as for any PDF (`ocrLines` and `readScannedPages` in `public/pdf.js`). The import review says the statement was a scan; check every row and the balances against the original. Longer scans need splitting, or use the bank's Excel or CSV download.
 
 ## Statements that cannot be read
 

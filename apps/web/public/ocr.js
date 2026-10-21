@@ -9,6 +9,11 @@ function engine(onProgress){
  return ready;
 }
 export async function readImageText(image,onProgress=()=>{}){const worker=await engine(onProgress);const {data}=await worker.recognize(image);return data.text||'';}
+// Every word with its box in pixels (left, top, width, height), for reading scanned statements as a table.
+export async function readImageWords(image,onProgress=()=>{}){
+ const worker=await engine(onProgress),{data}=await worker.recognize(image,{},{tsv:true,text:false});
+ return String(data.tsv||'').split('\n').map(l=>l.split('\t')).filter(c=>c[0]==='5'&&c[11]?.trim()).map(c=>({text:c[11].trim(),x:+c[6],y:+c[7],w:+c[8],h:+c[9],confidence:+c[10]}));
+}
 // Photos are resized and saved as JPEG before reading and storing: phone photos are often 4–12 MB.
 export async function shrinkImage(file,max=2000){
  const bitmap=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>null);if(!bitmap)throw Error('This photo could not be opened. Try a JPG or PNG.');

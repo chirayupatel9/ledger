@@ -11,7 +11,7 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 | Column detection misses common headers (`DR`/`CR`, `Dr / Cr`, `Withdrawal Amt.`, `Closing Balance`, `BAL`) | Axis and Kotak files need manual mapping; balance is ignored. | Done |
 | Balance column discarded | Running balance is the only way to prove nothing was dropped or misread during import. | Done |
 | Separator/footer rows reported as "rows that could not be read" | Bank exports have asterisk rows and summary footers; the warning becomes noise. | Done |
-| Scanned PDFs (OCR) | Some branches issue image-only PDFs. | Later |
+| Scanned PDFs (OCR) | Some branches issue image-only PDFs. | Done (read on the device with the bundled Tesseract OCR, up to 20 pages, then the normal bank and card parsers and reconciliation; the review says the statement was a scan) |
 | Credit card statement PDFs (single amount column with Cr suffix) | CC PDFs rarely have separate debit/credit columns. | Done (verified on a real ICICI Amazon Pay statement in both its app and e-statement formats, plus synthetic HDFC, SBI Card and ICICI layouts) |
 
 ## 2. Bookkeeping integrity

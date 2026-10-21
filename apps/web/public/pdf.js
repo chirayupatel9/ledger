@@ -175,4 +175,30 @@ function parseBankLines(pages,account,rules){const transactions=[],invalid=[],wa
 // lines often mention other banks). Only used to describe a statement that could not be read.
 const issuers=[['HDFC Bank',/\bHDFC\s*BANK\b/i],['ICICI Bank',/\bICICI\s*BANK\b/i],['SBI Card',/\bSBI\s*CARD\b/i],['State Bank of India',/\bSTATE\s+BANK\s+OF\s+INDIA\b/i],['Axis Bank',/\bAXIS\s*BANK\b/i],['Kotak Mahindra Bank',/\bKOTAK\b/i],['Yes Bank',/\bYES\s*BANK\b/i],['IDFC FIRST Bank',/\bIDFC\s*FIRST\b/i],['IndusInd Bank',/\bINDUSIND\b/i],['Bank of Baroda',/\bBANK\s+OF\s+BARODA\b/i],['Punjab National Bank',/\bPUNJAB\s+NATIONAL\s+BANK\b/i],['Canara Bank',/\bCANARA\s+BANK\b/i],['Union Bank of India',/\bUNION\s+BANK\s+OF\s+INDIA\b/i],['Bank of India',/\bBANK\s+OF\s+INDIA\b/i],['IDBI Bank',/\bIDBI\b/i],['Federal Bank',/\bFEDERAL\s+BANK\b/i],['South Indian Bank',/\bSOUTH\s+INDIAN\s+BANK\b/i],['Indian Bank',/\bINDIAN\s+BANK\b/i],['RBL Bank',/\bRBL\s*BANK\b/i],['AU Small Finance Bank',/\bAU\s+SMALL\s+FINANCE\b/i],['Standard Chartered',/\bSTANDARD\s+CHARTERED\b/i],['HSBC',/\bHSBC\b/i],['American Express',/\bAMERICAN\s+EXPRESS\b/i],['CAMS',/\bCAMS\b/],['KFintech',/\bKFIN/i]];
 export function statementIssuer(pages){const text=(pages[0]||[]).map(l=>l.items.map(i=>i.text).join(' ')).join('\n');let best=null;for(const [name,re] of issuers){const at=text.search(re);if(at>=0&&(!best||at<best.at))best={name,at};}return best?.name||'';}
-export async function readPDF(buffer,password,account,rules,options={}){const pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;const task=pdfjs.getDocument({data:buffer,password:password||undefined,isEvalSupported:false,useSystemFonts:true});let doc;try{doc=await task.promise;if(doc.numPages>150)throw Object.assign(Error('Please split statements longer than 150 pages before importing.'),{name:'LimitError'});const pages=[];for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p),content=await page.getTextContent();pages.push(extractPageLines(content.items));page.cleanup()}return {...parsePDFLines(pages,account,rules,options),pages:pages.length,issuer:statementIssuer(pages)}}finally{if(doc)await doc.destroy();else await task.destroy();}}
+// Scanned pages: OCR words (pixel boxes from the top left) are grouped into rows by their vertical centre and given the
+// positions a text PDF has (points from the left and from the bottom), so the bank and card parsers read them unchanged.
+export function ocrLines(words,{scale,height}){
+ const rows=[];
+ for(const w of [...words].filter(w=>w.text.trim()).sort((a,b)=>(a.y+a.h/2)-(b.y+b.h/2))){const c=w.y+w.h/2,row=rows.find(r=>Math.abs(r.c-c)<=Math.max(4,Math.min(r.h,w.h)*.6));
+  if(row){row.words.push(w);row.c+=(c-row.c)/row.words.length;row.h=Math.max(row.h,w.h);}else rows.push({c,h:w.h,words:[w]});}
+ return rows.map(r=>({y:(height-r.c)/scale,items:r.words.sort((a,b)=>a.x-b.x).map(w=>({text:w.text.trim(),x:w.x/scale,width:w.w/scale}))})).sort((a,b)=>b.y-a.y);
+}
+const textChars=pages=>pages.flat().reduce((n,l)=>n+l.items.reduce((m,i)=>m+i.text.replace(/\s/g,'').length,0),0);
+async function readScannedPages(doc,onProgress=()=>{}){
+ if(doc.numPages>20)throw Object.assign(Error('This statement is a scan of more than 20 pages. Split it, or use the bank’s Excel or CSV download.'),{name:'LimitError'});
+ const {readImageWords}=await import('./ocr.js'),pages=[];
+ for(let p=1;p<=doc.numPages;p++){
+  onProgress(`Reading scanned page ${p} of ${doc.numPages}…`);
+  const page=await doc.getPage(p),scale=Math.min(4,2400/page.getViewport({scale:1}).width),viewport=page.getViewport({scale}),canvas=document.createElement('canvas');canvas.width=Math.round(viewport.width);canvas.height=Math.round(viewport.height);
+  const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);await page.render({canvasContext:context,viewport}).promise;page.cleanup();
+  const image=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('A scanned page could not be drawn.')),'image/png'));
+  pages.push(ocrLines(await readImageWords(image,m=>onProgress(`Reading scanned page ${p} of ${doc.numPages}… ${m.percent}%`)),{scale,height:canvas.height}));
+ }
+ return pages;
+}
+export async function readPDF(buffer,password,account,rules,options={}){const pdfjs=await import('./vendor/pdf.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;const task=pdfjs.getDocument({data:buffer,password:password||undefined,isEvalSupported:false,useSystemFonts:true});let doc;try{doc=await task.promise;if(doc.numPages>150)throw Object.assign(Error('Please split statements longer than 150 pages before importing.'),{name:'LimitError'});let pages=[];for(let p=1;p<=doc.numPages;p++){const page=await doc.getPage(p),content=await page.getTextContent();pages.push(extractPageLines(content.items));page.cleanup()}
+ // A PDF with (almost) no text is a scan: read its pages with OCR, and say so in the review.
+ const scanned=textChars(pages)<30;if(scanned)pages=await readScannedPages(doc,options.onProgress);
+ const result=parsePDFLines(pages,account,rules,options);
+ if(scanned)result.warnings=['This statement is a scan and was read with OCR. Check every row and the balances against the original.',...(result.warnings||[]).filter(w=>!/scanned PDF/.test(w))];
+ return {...result,pages:pages.length,issuer:statementIssuer(pages),scanned}}finally{if(doc)await doc.destroy();else await task.destroy();}}
