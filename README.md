@@ -301,6 +301,8 @@ and recreate the API (`sudo docker compose up -d api`). Your Ledger login addres
 
 ## Settings and transaction titles
 
+**Theme.** Light and dark use one set of colour tokens (`--surface`, `--surface-2…4`, `--line`, `--line-strong`, `--text`, `--text-2`, `--text-3`, `--accent-ink`/`-soft`/`-line`, and `--warn-*`, `--danger-*`, `--info-*`) defined at the top of `public/styles.css`, with dark values under `:root[data-theme=dark]`. New styles should use them rather than fixed colours so they work in both themes. The sidebar, header bar, toasts and chart colours stay the same in both. The sign-in, sign-up, password and two-step pages (`public/auth.css`) follow the theme last used on the device, otherwise the device setting, and the browser bar colour follows the device's light or dark mode. Text is at least 10 px.
+
 **Settings** (`/settings`) changes how Ledger looks and what it shows, saved to your account so it follows you across devices: theme (light, dark, or follow the device), font size (14–22 px; the whole interface scales), font family (Ledger sans, device font, serif), row spacing (comfortable or compact), which Overview components appear (cash-flow chart, spending categories, recent transactions), and transaction details (running balances, where a title came from, original narrations expanded). Changes preview immediately and only apply after **Save settings**; leaving with unsaved changes asks first.
 
 **Transaction titles** (`/titles`) replaces cryptic bank narrations with names you recognise:

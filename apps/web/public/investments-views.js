@@ -1,4 +1,4 @@
-import {donut,barList} from './charts.js';
+import {donut,barList,stackedBars} from './charts.js';
 import {summarizeInvestments,fundSchemes,schemeKey} from './investments.js';
 import {transactionLabel} from './transaction-labels.js';
 import {fmtDate,istDate} from './format.js';
@@ -66,10 +66,12 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
     <td class="amount">${f.incomplete?'—<small class="units-missing">Earlier purchases are missing: request a CAS since inception from CAMS or KFintech and import it into this Investment account</small>':f.unitsKnown?units(f.units):'—'}${f.averageNav!==null?`<small>Average NAV ${rupees(Math.round(f.averageNav*10000)/10000)}</small>`:''}</td>
     <td class="amount fund-value">${valueCell(f)}</td><td class="amount fund-gain ${f.gain>0?'positive':''}">${f.gain!==null?`${signed(f.gain)}<small>${f.paid?pct(f.gain/f.paid):''}${f.xirr!==null?` · XIRR ${pct(f.xirr)}`:''}</small>`:'—'}</td></tr>`).join('')}</tbody></table></div></div>`;
  }
+ // The same chart as Reports: an amount scale, the month's total on hover or tap, and a click opens that month's investments.
  function monthsCard(s){
-  const max=Math.max(...s.months.map(m=>m.amount),1);
-  return `<div class="card months-card"><div class="table-toolbar"><div><h2>Invested each month</h2><p class="sub">Last 12 months · fund purchases and investment debits from your bank, counted once</p></div></div><div class="inv-bars" role="img" aria-label="Amount invested in each of the last 12 months">${s.months.map(m=>`<div class="inv-bar" title="${monthName(m.month)} ${m.month.slice(0,4)}: ${money(m.amount)}"><span style="height:${m.amount?Math.max(3,Math.round(m.amount/max*100)):0}%"></span><small>${monthName(m.month)}</small></div>`).join('')}</div></div>`;
+  const months=s.months.map(m=>m.month),chart=stackedBars({labels:months.map(monthName),titles:months.map(m=>`${monthName(m)} ${m.slice(0,4)}`),series:[{key:'Investments',name:'Invested',color:'#2c6554',values:s.months.map(m=>m.amount)}],format:(v,compact)=>money(v,compact),label:'Amount invested in each of the last 12 months',drill:i=>({month:months[i],category:'Investments'})});
+  return `<div class="card months-card"><div class="table-toolbar"><div><h2>Invested each month</h2><p class="sub">Last 12 months · fund purchases and investment debits from your bank, counted once</p></div></div><div class="months-chart">${chart||'<p class="sub">Nothing invested in the last 12 months.</p>'}</div></div>`;
  }
+
  function bankCard(s){
   if(!s.bank.length)return '';const rules=getState().titleRules||[];
   return `<div class="card bank-investments"><div class="table-toolbar"><div><h2>Investment payments from your bank</h2><p class="sub">${plural(s.bank.length,'payment')} categorised as Investments${s.hasFundAccount?` · ${s.bank.filter(t=>t.matched).length} matched to a fund report`:''}</p></div><button class="text-link" data-page="transactions">View transactions ${icon('chevron',12)}</button></div>

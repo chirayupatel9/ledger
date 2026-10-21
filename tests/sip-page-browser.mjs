@@ -45,7 +45,7 @@ try{
  assert.match(await content.locator('.bank-investments').innerText(),/6 payments categorised as Investments · 3 matched to a fund report/);
  assert.equal(await content.locator('.bank-investments .pill.review').count(),3);
  assert.match(await content.locator('.transfer-strip').innerText(),/3 investment payments from your bank are not matched/);
- assert.equal(await content.locator('.inv-bar').count(),12);
+ assert.equal(await content.locator('.months-chart .kit-hit').count(),12,'one column per month');
  if(process.env.SHOT_DIR)await page.screenshot({path:process.env.SHOT_DIR+'/investments-desktop.png',fullPage:true});
  const metrics=await content.locator('.metrics').innerText();assert.match(metrics,/Invested[\s\S]*₹2\.9\d?L|Invested[\s\S]*2,90,000/);assert.match(metrics,/Value at last NAV/);
 
