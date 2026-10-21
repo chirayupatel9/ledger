@@ -1,5 +1,5 @@
 import {genericPayee,netWorth,upcomingPayments,categoryTrend,taxProgress,savingsTrend,topPayees,paymentMethods,spendingCalendar,cashFlowWaterfall,unusualActivity,insightCards,monthsUpTo,latestMonth,balanceHistory} from './insights.js';
-import {lineChart,stackedBars,barList,progressList,heatmap,waterfall,legend} from './charts.js';
+import {lineChart,stackedBars,barList,progressList,heatmap,waterfall} from './charts.js';
 import {categoryLookup} from './categories.js';
 import {financialYear} from './tax.js';
 import {fmtDate,istDate} from './format.js';
@@ -8,7 +8,7 @@ import {fmtDate,istDate} from './format.js';
 const palette=['#2c6554','#7c9cbf','#c5a15a','#b07a9e','#d88a5a','#6f9a4c','#8a948e','#4f8a8b'];
 export function createInsightViews({getState,rows,accountFilter,period,money,esc,icon,investments=()=>null}){
  const today=()=>istDate(),fmt=(v,compact)=>money(v,compact),pct=v=>`${Math.round(v)}%`;
- const monthName=m=>new Date(m+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'short'});
+ const monthName=m=>new Date(m+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'short'}),monthLong=m=>new Date(m+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'long',year:'numeric'});
  const label=key=>key==='Other'?'Other':categoryLookup(getState())(key).label,colour=(key,i)=>key==='Other'?'#b9c0b8':categoryLookup(getState())(key).color||palette[i%palette.length];
  const scoped=()=>{const s=getState(),a=accountFilter();return a==='all'?s:{...s,accounts:s.accounts.filter(x=>x.id===a),transactions:s.transactions.filter(t=>t.accountId===a),statements:s.statements.filter(x=>x.accountId===a)};};
  function span(n=12){
@@ -40,13 +40,13 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
   const series=[{name:'Net worth',color:'#2c6554',bold:true,values:p.map(x=>x.total)},{name:'Bank',color:'#7c9cbf',values:p.map(x=>x.banks)},{name:'Investments',color:'#b07a9e',values:p.map(x=>x.investments||null)},{name:'Cards owed',color:'#d88a5a',values:p.map(x=>x.cards)}].filter(s=>s.values.some(v=>v!==null&&v!==0));
   const change=first&&first!==last?last.total-first.total:null;
   return card('net-worth-card','Net worth',`<b class="insight-figure">${esc(money(last.total))}</b>${change!==null?` <span class="${change>=0?'up':'down'}">${change>=0?'+':'−'}${esc(money(Math.abs(change)))} since ${esc(monthName(first.month))}</span>`:''}`,
-   lineChart({labels:months.map(monthName),series,format:fmt,label:'Net worth by month'})+legend(series)+`<p class="sub insight-note">What you own minus what you owe, at each month end. Investments count at the amount invested${w.latestIsValue?', and at today’s value for the latest month':''}.${w.unknown.length?` Not included (no known balance): ${esc(w.unknown.join(', '))}.`:''}</p>`);
+   lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Net worth by month',legend:true})+`<p class="sub insight-note">What you own minus what you owe, at each month end. Investments count at the amount invested${w.latestIsValue?', and at today’s value for the latest month':''}.${w.unknown.length?` Not included (no known balance): ${esc(w.unknown.join(', '))}.`:''}</p>`);
  }
  function categoryTrendCard(){
   const months=span(6),t=categoryTrend(scoped().transactions,{months});
   if(!t.series.length)return card('category-trend-card','Spending by category','',empty('No spending in these months yet.'));
-  const series=t.series.map((s,i)=>({name:label(s.key),color:colour(s.key,i),values:s.values}));
-  return card('category-trend-card','Spending by category','Each month, your top categories',stackedBars({labels:months.map(monthName),series,format:fmt,label:'Spending by category each month'})+legend(series));
+  const series=t.series.map((s,i)=>({key:s.key,name:label(s.key),color:colour(s.key,i),values:s.values}));
+  return card('category-trend-card','Spending by category','Each month, your top categories',stackedBars({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Spending by category each month',legend:true,drill:(i,s)=>s&&s.key!=='Other'?{month:months[i],category:s.key}:{month:months[i],type:'Expense'}}));
  }
  function taxCard(){
   const p=period(),fy=p.startsWith('fy-')?+p.slice(3):financialYear(today()),t=taxProgress(scoped().transactions,{fy});
@@ -59,7 +59,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
   const months=span(),s=savingsTrend(scoped().transactions,{months}),rates=s.map(x=>x.rate);
   if(!rates.some(v=>v!==null))return card('savings-trend-card','Savings rate','',empty('Your savings rate appears once income is recorded.'));
   const known=rates.filter(v=>v!==null),avg=known.reduce((v,x)=>v+x,0)/known.length;
-  return card('savings-trend-card','Savings rate',`Share of income kept each month · average <b>${pct(avg)}</b>`,lineChart({labels:months.map(monthName),series:[{name:'Savings rate',color:'#2c6554',bold:true,values:rates}],format:v=>pct(v),label:'Savings rate by month'}));
+  return card('savings-trend-card','Savings rate',`Share of income kept each month · average <b>${pct(avg)}</b>`,lineChart({labels:months.map(monthName),titles:months.map(monthLong),series:[{name:'Savings rate',color:'#2c6554',bold:true,values:rates}],format:v=>pct(v),label:'Savings rate by month',drill:i=>({month:months[i]})}));
  }
  // The chips go under the totals; the cards after the existing charts.
  function dashboard(prefs){
@@ -70,18 +70,18 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
  }
  // Reports
  function payeesCard(){const s=scoped(),p=topPayees(rows(),{titleRules:s.titleRules||[],limit:10});
-  return card('payees-card','Top payees',p.payees?`Where the money went · ${p.payees} payees`:'',p.items.length?barList(p.items.map(i=>({label:i.category?`${label(i.category)} · ${i.name}`:i.name,value:i.total,sub:`${i.count} payment${i.count===1?'':'s'} · ${i.share}%`})),{format:fmt}):empty('No spending in this period.'));}
+  return card('payees-card','Top payees',p.payees?`Where the money went · ${p.payees} payees`:'',p.items.length?barList(p.items.map(i=>({label:i.category?`${label(i.category)} · ${i.name}`:i.name,value:i.total,sub:`${i.count} payment${i.count===1?'':'s'} · ${i.share}%`,drill:{search:i.name,...(i.category?{category:i.category}:{})}})),{format:fmt}):empty('No spending in this period.'));}
  function methodsCard(){const s=scoped(),months=span(),m=paymentMethods(s.transactions,{months,accounts:s.accounts}),colours={UPI:'#2c6554',Card:'#7c9cbf','Bank transfer':'#c5a15a','Auto-debit':'#b07a9e',Cash:'#d88a5a',Cheque:'#6f9a4c',Other:'#b9c0b8'};
   if(!m.series.length)return card('methods-card','How you pay','',empty('No spending in these months yet.'));
   const series=m.series.map(x=>({name:x.key,color:colours[x.key],values:x.values}));
-  return card('methods-card','How you pay','UPI, cards, bank transfers, automatic debits and cash, each month',stackedBars({labels:months.map(monthName),series,format:fmt,label:'Spending by payment method'})+legend(series));}
+  return card('methods-card','How you pay','UPI, cards, bank transfers, automatic debits and cash, each month',stackedBars({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Spending by payment method',legend:true,drill:i=>({month:months[i],type:'Expense'})}));}
  function balancesCard(){const months=span(),b=balanceHistory(scoped(),{months});
   if(!b.accounts.length)return card('balances-card','Account balances','',empty('Balances appear once a statement has running balances or a confirmed closing balance.'));
   const series=b.accounts.map((a,i)=>({name:a.name+(a.card?' (owed)':''),color:palette[i%palette.length],values:a.card?a.points.map(v=>v===null?null:-v):a.points}));
-  return card('balances-card','Account balances','At each month end',lineChart({labels:months.map(monthName),series,format:fmt,label:'Account balances by month'})+legend(series)+(b.unknown.length?`<p class="sub insight-note">No known balance yet: ${esc(b.unknown.join(', '))}.</p>`:''));}
+  return card('balances-card','Account balances','At each month end',lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Account balances by month',legend:true})+(b.unknown.length?`<p class="sub insight-note">No known balance yet: ${esc(b.unknown.join(', '))}.</p>`:''));}
  function cardsCard(){const months=span(),cards=balanceHistory(scoped(),{months}).accounts.filter(a=>a.card);if(!cards.length)return '';
   const series=cards.map((a,i)=>({name:a.name,color:['#d88a5a','#b07a9e','#c5a15a'][i%3],values:a.points.map(v=>v===null?null:Math.max(0,-v))}));
-  return card('cards-card','Credit cards','Amount owed at each month end',`<div class="insight-figures">${cards.map(a=>`<span>${esc(a.name)} <b>${esc(money(Math.max(0,-a.latest)))}</b> ${a.latest>0?'<small class="sub">in credit</small>':'<small class="sub">owed</small>'}</span>`).join('')}</div>`+lineChart({labels:months.map(monthName),series,format:fmt,label:'Credit card balances by month'})+legend(series));}
+  return card('cards-card','Credit cards','Amount owed at each month end',`<div class="insight-figures">${cards.map(a=>`<span>${esc(a.name)} <b>${esc(money(Math.max(0,-a.latest)))}</b> ${a.latest>0?'<small class="sub">in credit</small>':'<small class="sub">owed</small>'}</span>`).join('')}</div>`+lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Credit card balances by month',legend:true}));}
  function calendarCard(){const tx=scoped().transactions,end=tx.reduce((m,t)=>t.date<=today()&&t.date>m?t.date:m,'')||today(),c=spendingCalendar(tx,{end,weeks:26});
   if(!c.max)return card('calendar-card','Spending calendar','',empty('No spending in the last six months.'));
   const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -89,7 +89,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
  function waterfallCard(){const s=scoped(),p=period(),month=/^\d{4}-\d{2}$/.test(p)?p:latestMonth(s.transactions,today()),w=cashFlowWaterfall(s,s.transactions,{month});
   if(!w.steps.some(x=>x.value))return card('waterfall-card','Where the month went','',empty('No money in or out this month.'));
   return card('waterfall-card',`Where ${esc(new Date(month+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'long',year:'numeric'}))} went`,w.opening!==null?'From the opening to the closing balance':'Money in and out (add statement balances to see the opening and closing balance)',
-   waterfall({opening:w.opening,closing:w.closing,steps:w.steps.map(x=>({...x,label:x.category?label(x.category):x.label})),format:fmt}));}
+   waterfall({opening:w.opening,closing:w.closing,steps:w.steps.map(x=>({...x,label:x.category?label(x.category):x.label,drill:x.category?{month,category:x.category}:x.label==='Income'?{month,type:'Income'}:x.label==='Invested'?{month,category:'Investments'}:null})),format:fmt}));}
  function unusualCard(){const s=scoped(),u=unusualActivity(s,{today:today()});
   const kind={large:'Much more than usual',duplicate:'Possible double charge',price:'Price went up'};
   return card('unusual-card','Worth a look','Unusual payments in the last 60 days',u.length?`<div class="unusual-list">${u.map(x=>`<div class="report-line"><span><button class="text-link" data-recurring="${esc(x.payee)}">${esc(x.payee)}</button><small class="sub"> · ${esc(kind[x.kind])} · ${esc(fmtDate(x.date))}${x.usual?` · usually ${esc(money(x.usual))}`:''}</small></span><span>${esc(money(x.amount))}</span></div>`).join('')}</div>`:empty('Nothing unusual. Large one-off charges, possible double charges and price rises show up here.'));}
