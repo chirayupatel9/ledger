@@ -8,7 +8,7 @@ import {spawn} from 'node:child_process';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
 const base=process.env.LEDGER_URL||'https://ledger.chirayupatel.dev';
 function operator(script,input){return new Promise((resolve,reject)=>{
- const args=script==='create'?['node','apps/api/dist/apps/api/src/create-account.js']:['node','--input-type=module','-e',`import {pool} from './apps/api/dist/apps/api/src/database.js'; let s='';for await(const c of process.stdin)s+=c; const emails=JSON.parse(s).emails;if(!emails.every(e=>/^domain-qa-[a-f0-9-]+@example.test$/.test(e)))throw Error('Invalid test account');for(const e of emails){await pool.query('DELETE FROM mail_outbox WHERE recipient=$1',[e]);await pool.query('DELETE FROM "user" WHERE email=$1',[e]);}await pool.end();`];
+ const args=script==='create'?['node','apps/api/dist/apps/api/src/create-account.js']:['node','--input-type=module','-e',`import {pool} from './apps/api/dist/apps/api/src/database.js'; let s='';for await(const c of process.stdin)s+=c; const emails=JSON.parse(s).emails;if(!emails.every(e=>/^domain-qa-[a-f0-9-]+@example.test$/.test(e)))throw Error('Invalid test account');for(const e of emails){await pool.query('DELETE FROM mail_outbox WHERE recipient=$1',[e]);await pool.query(\"DELETE FROM verification WHERE identifier LIKE 'reset-password:%' AND value IN (SELECT id FROM \\"user\\" WHERE email=$1)\",[e]);await pool.query('DELETE FROM "user" WHERE email=$1',[e]);}await pool.end();`];
  const child=spawn('sudo',['-n','docker','compose','exec','-T','api',...args],{stdio:['pipe','ignore','pipe']});
  child.stderr.on('data',()=>{});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Operator test action failed')));child.stdin.end(JSON.stringify(input));
 });}
@@ -47,8 +47,10 @@ try{
  // 4. Sign-up, Google sign-in and password reset behave as configured.
  const anon=await browser.newContext();
  const signup=await anon.request.post(base+'/api/auth/sign-up/email',{headers:{Origin:base},data:{email:stranger.email,name:stranger.name,password:stranger.password}});
+ // Every mode is checked: invite refuses an uninvited address, open accepts it (removed afterwards), closed refuses.
  if(options.signupMode==='invite'){assert.equal(signup.status(),403);assert.match((await signup.json()).message,/not been invited/);}
- else if(!options.signup)assert.ok([400,403,404].includes(signup.status()),'sign-up is closed');
+ else if(options.signupMode==='open')assert.equal(signup.status(),200,'open sign-up accepts a new address');
+ else assert.ok([400,403,404].includes(signup.status()),'sign-up is closed');
  if(options.google){
   const start=await anon.request.post(base+'/api/auth/sign-in/social',{headers:{Origin:base},data:{provider:'google',callbackURL:'/',errorCallbackURL:'/login?via=google'}});assert.equal(start.status(),200);
   const url=new URL((await start.json()).url);assert.equal(url.host,'accounts.google.com');assert.equal(url.searchParams.get('redirect_uri'),base+'/api/auth/callback/google');
