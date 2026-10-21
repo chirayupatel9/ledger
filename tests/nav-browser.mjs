@@ -66,7 +66,7 @@ try{
  assert.match(await row(alphaName).innerText(),new RegExp(`No AMFI scheme with this name · Find it[\\s\\S]*${re(inr(value.alpha))}[\\s\\S]*Report NAV ₹1,918\\.97 · 10 Sept? 2026`));
  const total=value.ppfas+value.hdfc+value.alpha,gain=total-paid.ppfas-paid.hdfc-paid.alpha;
  assert.match(await content.locator('.metric.highlight').innerText(),new RegExp(`Current value[\\s\\S]*${re(inr(total,true))}[\\s\\S]*${re(signed(gain))} · XIRR [+−][\\d.]+% · NAV 19 Oct 2026 · 1 of 3 funds at today’s NAV`));
- assert.match(await content.locator('.funds-card .sub').first().innerText(),/today’s official NAV from AMFI[\s\S]*Units count only the transactions in the reports you imported/);
+ assert.match(await content.locator('.funds-card .sub').first().innerText(),/today’s official NAV from AMFI[\s\S]*Units count only the transactions in the reports you imported[\s\S]*The simplest way is one Consolidated Account Statement \(CAS\) since inception/);
  if(process.env.SHOT_DIR)await page.screenshot({path:process.env.SHOT_DIR+'/navs-desktop.png',fullPage:true});
 
  // 3. Choosing the scheme for the ambiguous fund: saved to the ledger and honoured by the real endpoint.

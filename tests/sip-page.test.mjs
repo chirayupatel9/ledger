@@ -67,11 +67,11 @@ test('a bank debit linked to a fund purchase is counted once',()=>{
 test('the Investments page explains how to start, then shows SIPs, funds and bank payments',()=>{
  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),money=v=>'₹'+(v/100).toFixed(2),icon=()=>'';
  let state={accounts:[],statements:[],transactions:[]};const view=createInvestmentViews({getState:()=>state,money,esc,icon});
- assert.match(view.page(),/No investments yet[\s\S]*Add an Investment account/);
+ assert.match(view.page(),/No investments yet[\s\S]*transaction report \(Excel\)[\s\S]*Consolidated Account Statement \(CAS\) PDF[\s\S]*PDF password field[\s\S]*Add an Investment account/);
  state=ledger();const html=view.page();
  assert.match(html,/Your SIPs/);assert.match(html,/10th of each month · 3 instalments since/);assert.match(html,/This SIP may have stopped/);
- assert.match(html,/Your funds/);assert.match(html,/Import earlier reports/);assert.match(html,/4 investment payments from your bank are not matched/);
+ assert.match(html,/Your funds/);assert.match(html,/Earlier purchases are missing: request a CAS since inception from CAMS or KFintech and import it into this Investment account/);assert.match(html,/import reports from your first purchase for complete holdings\. The simplest way is one Consolidated Account Statement \(CAS\) since inception/);assert.match(html,/4 investment payments from your bank are not matched/);
  assert.match(html,/<span class="pill ok">Matched<\/span>/);assert.match(html,/Invested each month/);
  state={...ledger(),accounts:[{id:'b',name:'HDFC Savings',type:'Savings'}],transactions:ledger().transactions.filter(t=>t.accountId==='b').map(({transferId,...t})=>t)};
- const bankOnly=view.page();assert.match(bankOnly,/See each fund, its units and its value/);assert.doesNotMatch(bankOnly,/Your funds|Not matched/);
+ const bankOnly=view.page();assert.match(bankOnly,/See each fund, its units and its value[\s\S]*CAS\) PDF since inception[\s\S]*PDF password field/);assert.doesNotMatch(bankOnly,/Your funds|Not matched/);
 });
