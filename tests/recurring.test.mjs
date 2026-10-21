@@ -31,7 +31,7 @@ test('varying bills, salary, weekly, yearly premiums, and one skipped month are 
 test('frequent orders, same-day repeats and generic channels at different amounts are not series',()=>{
  const orders=['2026-03-01','2026-03-03','2026-03-04','2026-03-09','2026-03-15','2026-03-16','2026-03-22','2026-03-30','2026-04-02','2026-04-11'].map(d=>t(d,'SWIGGY BANGALORE',-45000));
  const sameDay=['2026-03-01','2026-03-01','2026-03-01'].map(d=>t(d,'ZOMATO',-30000));
- const upi=['2026-01-05','2026-02-05','2026-03-05'].map((d,i)=>t(d,'UPI/DR/12345678901'+i+'/X/'+['A','B','C'][i],-[50000,70000,90000][i]));
+ const upi=['2026-01-05','2026-02-05','2026-03-05'].map((d,i)=>t(d,'UPI/DR/12345678901'+i+'/'+['ANITA','BIJOY','CHITRA'][i]+'/HDFC',-[50000,70000,90000][i]));
  assert.deepEqual(detectRecurring([...orders,...sameDay,...upi]),[]);
  const rent=['2026-01-01','2026-02-01','2026-03-02'].map((d,i)=>t(d,'UPI/DR/99887766554'+i+'/LANDLORD/HDFC',-2500000));
  assert.equal(detectRecurring(rent).length,1,'same amount on a generic channel monthly is rent-like');

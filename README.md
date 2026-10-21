@@ -123,6 +123,20 @@ Custom names persist in PostgreSQL as optional transaction metadata. Search matc
 
 Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/transactions-browser.mjs` for live disposable-user tests of editing, concurrency, retry, search/export, duplicate detection, and mobile behavior.
 
+## Whom a UPI payment went to
+
+A UPI narration names the person or shop you paid (or who paid you), their UPI ID and the note you typed, in a different order at each bank (`parseUPI` in `packages/domain/transaction-labels.js`):
+
+| Bank | Narration |
+| --- | --- |
+| ICICI | `UPI/RAMESH KUMAR/ramesh@ybl/Rent/YES BANK LIMITED/628512345678/YBL…` |
+| HDFC | `UPI-RAMESH KUMAR-ramesh@ybl-YESB0000001-628512345678-Rent` |
+| SBI, IDFC, Yes | `UPI/DR/628512345678/RAMESH KUM/YESB/ramesh@yb/Rent` |
+| Axis | `UPI/P2A/628512345678/RAMESH KUMAR/Rent/YES BANK` |
+| Kotak | `UPI/RAMESH KUMAR/628512345678/Rent` |
+
+Fields are recognised by what they look like (a UPI ID, the 12-digit reference, an IFSC or bank name, even when cut short to fit the column), so the payee becomes the transaction's name ("Ramesh Kumar") and the UPI ID and your note show underneath. Default notes the apps fill in ("UPI", "Payment from PhonePe", "Collect request"…) are not shown. Shops are named by brand, including their legal names (Bundl Technologies → Swiggy, Avenue Supermarts → DMart, Kiranakart → Zepto, One97 → Paytm). With no name in the narration, the UPI ID itself is used; only a narration with neither stays "UPI payment". Your own names and title rules still come first, and the original narration never changes.
+
 ## Indian bookkeeping features
 
 - **Imports:** Excel (`.xls`/`.xlsx`, read in the browser with SheetJS), CSV and text-based PDFs. Column detection covers SBI, HDFC, ICICI, Axis and Kotak headers including `DR`/`CR`, `Dr / Cr`, `Withdrawal Amt.` and running balance columns. Excel date cells are read from their serial value, so US date formats cannot swap day and month. Separator, total and footer rows are skipped; unreadable rows that contain figures are still reported.
@@ -180,6 +194,12 @@ Computed in the browser from your ledger (`packages/domain/insights.js`, drawn b
 - **Investments**: allocation by fund (today's value where known), SIP vs lump sum, and invested vs worth per fund.
 
 Accounts with no known balance (no running balance and no confirmed closing balance) are left out of net worth and balances, and named under the chart.
+
+## Make the dashboard and Reports your own
+
+**Customize** (on the dashboard and on Reports) lists the cards: tick to show or hide them, and move them up or down. The layout is saved in your preferences (`dashboardOrder`, `reportsOrder`, `reportsHidden`, validated against the known cards in `packages/domain/preferences.js`), so it is the same on every device; *Reset to default* restores it. Dashboard cards use the same switches as Settings → Dashboard components. Cards you have not placed (for example, new ones in a later release) appear in their default spot.
+
+**Not recurring.** A payment Ledger takes for a regular one can be marked *Not recurring* from the recurring list on Reports or from Coming up on the dashboard. It is then left out of the recurring list, Coming up, the "new regular payment" note and price-rise alerts (`recurringDismissed` in the ledger, by the series key). *N marked not recurring* on the recurring list shows them, each with *It is recurring* to bring it back.
 
 ## Investments (SIPs and mutual funds)
 

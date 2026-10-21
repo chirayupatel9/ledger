@@ -92,7 +92,8 @@ test('unusual activity and the insight cards',()=>{
  assert.equal(c.month,'2026-10');assert.equal(c.previous,'2026-09');
  assert.equal(c.cards[0].kind,'up');assert.equal(c.cards[0].category,'Shopping');assert.equal(c.cards[0].amount,1500000);
  assert.ok(c.cards.some(x=>x.kind==='savings'&&/down from 63%/.test(x.text)));
- assert.ok(c.cards.some(x=>x.kind==='largest'&&x.amount===3500000&&/Rent \(UPI payment\)/.test(x.text)));assert.ok(!c.cards.some(x=>x.kind==='new-regular'),'nothing started after the records began');
+ assert.ok(c.cards.some(x=>x.kind==='largest'&&x.amount===3500000&&/Landlord Ramesh Kumar/.test(x.text)),'the UPI payee, not "UPI payment"');
+ assert.ok(insightCards({...s,transactions:s.transactions.map(t=>t.category==='Rent'?{...t,description:'UPI/DR/628533334444'}:t)},s.transactions.map(t=>t.category==='Rent'?{...t,description:'UPI/DR/628533334444'}:t),{today}).cards.some(x=>x.kind==='largest'&&/Rent \(UPI payment\)/.test(x.text)),'with no payee in the narration, the category says what it was');assert.ok(!c.cards.some(x=>x.kind==='new-regular'),'nothing started after the records began');
  assert.equal(latestMonth([{date:'2026-09-30'}],today),'2026-09');
 });
 

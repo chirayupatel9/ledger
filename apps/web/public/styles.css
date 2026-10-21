@@ -152,3 +152,17 @@ nav a[data-page=overview],nav a[data-page=transactions],nav a[data-page=investme
 :root[data-theme=dark] .insight-chip{background:#121c18}:root[data-theme=dark] .kit .grid{stroke:#26332e}:root[data-theme=dark] .kit text{fill:#7f9187}:root[data-theme=dark] .kit-track{background:#1b2823}
 :root[data-theme=dark] .kit-heat .heat.l0{fill:#1b2823}:root[data-theme=dark] .kit-heat .heat.l1{fill:#24432f}:root[data-theme=dark] .kit-heat .heat.l2{fill:#2f6544}:root[data-theme=dark] .kit-heat .heat.l3{fill:#4f8f63}:root[data-theme=dark] .kit-heat .heat.l4{fill:#8fc9ac}
 @media(max-width:580px){.kit:not(.kit-heat) text{font-size:19px}}
+/* UPI details under a transaction: the payee's UPI ID and your note */
+.upi-id{overflow-wrap:anywhere}.upi-note{font-style:italic}
+/* Boards: dashboard and Reports cards in the order you choose (Customize) */
+.board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;grid-auto-flow:row dense;margin-bottom:22px}
+.board-item{min-width:0;display:flex;flex-direction:column}.board-item.wide{grid-column:1/-1}
+.board-item>.card,.board-item>.report-grid,.board-item>.insight-chips{margin:0!important;flex:1}
+.board-tools{display:flex;justify-content:flex-end;margin:-4px 0 12px}.board-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;margin-bottom:20px}
+.customize-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.customize-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px}
+.customize-row label{display:flex;align-items:center;gap:10px;font-weight:600;font-size:0.8125rem}.customize-row span{display:flex;gap:6px}.customize-row .btn{padding:4px 10px;min-width:36px}
+.icon-link{border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 4px;vertical-align:middle}.icon-link:hover{color:#a5634e}
+.not-recurring{font-size:0.6875rem;margin-left:8px}
+@media(max-width:850px){.board{grid-template-columns:1fr}}
+@media print{.board{display:block}.board-item{margin-bottom:16px}.board-tools,.not-recurring{display:none}}

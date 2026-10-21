@@ -17,8 +17,11 @@ function cadenceOf(dates){
   if(steps.every(Boolean)&&steps.filter(k=>k===1).length>=Math.ceil(gaps.length*.6))return {...c,skipped:steps.filter(k=>k===2).length};}
  return null;
 }
+// Series you marked "not recurring" (state.recurringDismissed) are left out everywhere: the recurring list, Coming up,
+// new-regular-payment notes and price-rise alerts.
+export const dismissedKeys=state=>(state?.recurringDismissed||[]).map(d=>d.key);
 // statements (optional) tell an expected payment that fell between statements from one that is truly absent.
-export function detectRecurring(transactions,statements=[],titleRules=[]){
+export function detectRecurring(transactions,statements=[],titleRules=[],{dismissed=[]}={}){const skip=new Set(dismissed);
  const groups=new Map(),coverage=new Map(),spans=new Map();
  for(const t of transactions){const s=spans.get(t.statementId);if(!s)spans.set(t.statementId,{from:t.date,to:t.date});else{if(t.date<s.from)s.from=t.date;if(t.date>s.to)s.to=t.date;}}
  const periods=statements.map(s=>({accountId:s.accountId,...(s.from&&s.to?{from:s.from,to:s.to}:spans.get(s.id)||{})})).filter(p=>p.from);
@@ -37,5 +40,5 @@ export function detectRecurring(transactions,statements=[],titleRules=[]){
    typical,varies:Math.max(...amounts)>Math.min(...amounts)*1.15,monthly:Math.round(typical*30.44/c.days),first:byDay[0].date,last:last.date,next,nextAmount:Math.abs(last.amount),
    status,ids:list.map(t=>t.id)});
  }
- return series.sort((a,b)=>a.status.localeCompare(b.status)||b.monthly-a.monthly);
+ return series.filter(s=>!skip.has(s.key)).sort((a,b)=>a.status.localeCompare(b.status)||b.monthly-a.monthly);
 }

@@ -2,7 +2,7 @@
 // and "today" is Indian Standard Time. Spending is Expense rows net of Refunds; transfers between your own accounts and
 // investments are not spending.
 import {transactionLabel} from './transaction-labels.js';
-import {detectRecurring} from './recurring.js';
+import {detectRecurring,dismissedKeys} from './recurring.js';
 import {taxSummary,financialYear} from './tax.js';
 import {summarize} from './core.js';
 import {statementBalances,addDays} from './books.js';
@@ -57,10 +57,10 @@ export function netWorth(state,{months,investments=null}){
 // One that was due in the last three days and has not shown up yet is listed as due.
 export function upcomingPayments(state,{today=istToday(),days=30}={}){
  const end=addDays(today,days),soon=addDays(today,-3),items=[];
- for(const s of detectRecurring(state.transactions||[],state.statements||[],state.titleRules||[])){
+ for(const s of detectRecurring(state.transactions||[],state.statements||[],state.titleRules||[],{dismissed:dismissedKeys(state)})){
   if(s.direction!=='out'||s.status==='missing')continue;
   const category=(state.transactions||[]).find(t=>t.id===s.ids.at(-1))?.category||null;
-  for(let date=s.next,n=0;date<=end&&n<120;n++){if(date>=soon)items.push({date,payee:s.payee,category,account:s.account,accountId:s.accountId,amount:s.nextAmount,cadence:s.cadence,due:date<today});
+  for(let date=s.next,n=0;date<=end&&n<120;n++){if(date>=soon)items.push({date,key:s.key,payee:s.payee,category,account:s.account,accountId:s.accountId,amount:s.nextAmount,cadence:s.cadence,due:date<today});
    date=s.cadence==='weekly'?addDays(date,7):s.cadence==='monthly'?addMonths(date,1):s.cadence==='quarterly'?addMonths(date,3):addMonths(date,12);}
  }
  items.sort((a,b)=>a.date.localeCompare(b.date)||b.amount-a.amount);
@@ -145,7 +145,7 @@ export function unusualActivity(state,{today=istToday(),titleRules=state.titleRu
    if(-t.amount>usual*2.5&&-t.amount-usual>=200000)out.push({kind:'large',date:t.date,payee,amount:-t.amount,usual,id:t.id,account:t.account});}
   for(let i=1;i<sorted.length;i++){const a=sorted[i-1],b=sorted[i];if(b.date>=since&&a.accountId===b.accountId&&a.amount===b.amount&&-b.amount>=50000&&Math.abs(Date.parse(b.date)-Date.parse(a.date))<=2*864e5&&a.id!==b.id&&!(a.ref&&b.ref&&a.ref!==b.ref))out.push({kind:'duplicate',date:b.date,payee,amount:-b.amount,ids:[a.id,b.id],account:b.account});}
  }
- for(const s of detectRecurring(state.transactions||[],state.statements||[],titleRules)){
+ for(const s of detectRecurring(state.transactions||[],state.statements||[],titleRules,{dismissed:dismissedKeys(state)})){
   if(s.direction!=='out'||s.status==='missing'||s.last<since)continue;const list=(state.transactions||[]).filter(t=>s.ids.includes(t.id)).sort((a,b)=>a.date.localeCompare(b.date));if(list.length<3)continue;
   const now=-list.at(-1).amount,was=median(list.slice(0,-1).map(t=>-t.amount));if(now>was*1.1&&now-was>=5000)out.push({kind:'price',date:s.last,payee:s.payee,amount:now,usual:was,account:s.account});
  }
@@ -168,7 +168,7 @@ export function insightCards(state,rows,{today=istToday(),titleRules=state.title
  if(biggest)cards.push({kind:'largest',tone:'info',amount:-biggest.amount,text:`Largest expense in ${name(month)}: ${called(biggest)}, {amount}.`});
  // New means it started recently and at least two months after that account's records begin.
  const starts=new Map();for(const t of state.transactions||[])if(!starts.has(t.accountId)||t.date<starts.get(t.accountId))starts.set(t.accountId,t.date);
- const fresh=detectRecurring(state.transactions||[],state.statements||[],titleRules).filter(s=>s.direction==='out'&&s.status!=='missing'&&s.first>=addDays(today,-100)&&s.first>=addDays(starts.get(s.accountId)||s.first,60)).sort((x,y)=>y.monthly-x.monthly)[0];
+ const fresh=detectRecurring(state.transactions||[],state.statements||[],titleRules,{dismissed:dismissedKeys(state)}).filter(s=>s.direction==='out'&&s.status!=='missing'&&s.first>=addDays(today,-100)&&s.first>=addDays(starts.get(s.accountId)||s.first,60)).sort((x,y)=>y.monthly-x.monthly)[0];
  if(fresh)cards.push({kind:'new-regular',tone:'info',amount:fresh.monthly,text:`New regular payment: ${fresh.payee}, about {amount} a month since ${new Date(fresh.first+'T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',day:'numeric',month:'short'})}.`});
  const odd=unusualActivity(state,{today,titleRules})[0];
  if(odd)cards.push({kind:'unusual',tone:'warn',amount:odd.amount,usual:odd.usual,text:odd.kind==='large'?`${odd.payee} charged {amount}, much more than the usual {usual}.`:odd.kind==='duplicate'?`Possible double charge: ${odd.payee}, {amount} twice.`:`${odd.payee} went up to {amount} from {usual}.`});

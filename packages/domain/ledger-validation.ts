@@ -2,8 +2,8 @@ import {upgradeAccounts,accountKey,accountTypes} from './accounts.js';
 import {categories,parseDate} from './core.js';
 import {taxTagIds} from './tax.js';
 import {normalizeTransfers} from './transfers.js';
-import {defaultPreferences} from './preferences.js';
-export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;fundMatches:{scheme:string;code:number|null}[];receipts:any[]};
+import {defaultPreferences,dashboardCards,reportCards} from './preferences.js';
+export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;recurringDismissed:{key:string;payee:string;at:string}[];fundMatches:{scheme:string;code:number|null}[];receipts:any[]};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
 const string=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max;
@@ -63,6 +63,9 @@ export function validateLedger(input:any):LedgerState{
  if(input.preferences!==undefined&&(!input.preferences||typeof input.preferences!=='object'||Array.isArray(input.preferences)))fail('Invalid display preferences.');
  const preferences={...defaultPreferences,...input.preferences};
  if(Object.keys(preferences).some(k=>!Object.hasOwn(defaultPreferences,k))||!['light','dark','system'].includes(preferences.theme)||![14,16,18,20,22].includes(preferences.fontSize)||!['sans','system','serif'].includes(preferences.fontFamily)||!['comfortable','compact'].includes(preferences.density)||['showChart','showCategories','showRecent','showBalances','showLabelSource','expandNarration','showInsights','showNetWorth','showUpcoming','showCategoryTrend','showSavingsTrend','showTax'].some(k=>typeof preferences[k]!=='boolean'))fail('Invalid display preferences.');
+ // Card order and hidden Reports cards: known card ids, each once.
+ const cardIds=(v:unknown,cards:{id:string}[])=>Array.isArray(v)&&v.length<=cards.length&&new Set(v).size===v.length&&v.every(id=>cards.some(c=>c.id===id));
+ if(!cardIds(preferences.dashboardOrder,dashboardCards)||!cardIds(preferences.reportsOrder,reportCards)||!cardIds(preferences.reportsHidden,reportCards))fail('Invalid dashboard or report layout.');
  if(input.titleRules!==undefined&&!Array.isArray(input.titleRules))fail('Invalid title rules.');
  if(input.titleRules?.length>500)fail('Up to 500 title rules are supported.');
  const ruleIds=new Set(),matches=new Set();
@@ -84,5 +87,8 @@ export function validateLedger(input:any):LedgerState{
   const scheme=m.scheme.trim().replace(/\s+/g,' ');if(schemes.has(scheme.toLowerCase()))fail('A fund is matched twice. Refresh and retry.');
   schemes.add(scheme.toLowerCase());return {scheme,code:m.code};
  });
- return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches,receipts};
+ // Recurring payments you marked as not recurring, by their series key.
+ if(input.recurringDismissed!==undefined&&(!Array.isArray(input.recurringDismissed)||input.recurringDismissed.length>500))fail('Up to 500 payments can be marked as not recurring.');
+ const keys=new Set<string>(),recurringDismissed=(input.recurringDismissed||[]).map((d:any)=>{if(!d||!string(d.key,400)||!d.key||keys.has(d.key)||!string(d.payee,160)||!string(d.at,40)||!Number.isFinite(Date.parse(d.at)))fail('Invalid recurring payment mark.');keys.add(d.key);return {key:d.key,payee:d.payee,at:d.at};});
+ return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches,receipts,recurringDismissed};
 }
