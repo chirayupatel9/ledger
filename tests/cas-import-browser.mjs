@@ -82,7 +82,7 @@ try{
  assert.match(await content.locator(`.funds-table tr[data-fund^="Alpha"]`).innerText(),/163\.322/);
  assert.match(await content.locator(`.funds-table tr[data-fund^="Beta Mid"]`).innerText(),/99\.737/);
  assert.match(await content.locator(`.funds-table tr[data-fund^="Gamma"]`).innerText(),/93\.678/);
- assert.match(await content.locator(`.funds-table tr[data-fund^="Beta Liquid"]`).innerText(),/Import earlier reports/);
+ assert.match(await content.locator(`.funds-table tr[data-fund^="Beta Liquid"]`).innerText(),/Earlier purchases are missing: request a CAS since inception/);
  assert.equal(await content.locator('.funds-table tr[data-fund^="Alpha"]').count(),1,'one fund, not one per source');
  assert.match(await content.locator('.sips-card').innerText(),/Alpha Flexi Cap Fund/);
  if(process.env.SHOT_DIR)await page.screenshot({path:process.env.SHOT_DIR+'/cas-investments.png',fullPage:true});

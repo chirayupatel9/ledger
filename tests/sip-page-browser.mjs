@@ -30,6 +30,7 @@ try{
  await put({accounts:[account('b','HDFC Savings','Savings')],statements:[],transactions:[]});
  await page.goto(base+'/');await page.locator('nav a[data-page="investments"]').click();await page.waitForURL(/\/investments$/);
  const content=page.locator('#page-content');await content.getByText('No investments yet').waitFor();
+ assert.match(await content.locator('.inv-steps').innerText(),/From your SIP report or CAS\.[\s\S]*transaction report \(Excel\)[\s\S]*Consolidated Account Statement \(CAS\) PDF[\s\S]*PDF password field/);
  assert.equal(await page.locator('#account-filter').count(),0,'the page covers all accounts and all time');
 
  // 2. Fund report plus bank debits.
