@@ -187,3 +187,4 @@ button.tag-chip:hover{background:#e1eaf3}
 :root[data-theme=dark] .tag-editor{background:#16211d;border-color:#26332e}
 :root[data-theme=dark] .tag-input{color:#dce6e0}
 @media print{.tag-bar{background:#999}}
+.bulk-bar #bulk-name{flex:1 1 220px}
