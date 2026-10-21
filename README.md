@@ -209,7 +209,9 @@ Live check (synthetic disposable account; the page runs against a stubbed NAV so
 
 **Add a photo of a bill.** Take or choose a photo; it is shrunk to a JPEG and read **on the device** with Tesseract (served from `public/ocr/tesseract-7.0.0/`, about 7 MB, downloaded the first time a bill is read and kept by the service worker). Ledger finds the total, date and shop, suggests the payment (same amount within a rupee, within five days) and attaches the photo as a receipt, stored privately with `POST /api/files` and deleted when it is removed from every transaction. A bill whose payment has not arrived yet waits in the inbox (shown on the overview) or can be added as a new payment.
 
-**Share to Ledger (Android).** The installed app is a share target: share a bank SMS or a bill photo to Ledger and it opens in Add. The service worker keeps the shared item on the device until the page picks it up; if it is not running yet (first launch), Ledger asks to share again.
+**PDF invoices.** *Choose a photo or PDF* also takes PDF invoices (Amazon, Swiggy, utilities…). Ledger reads the text inside the PDF with pdf.js, or reads it with the same on-device OCR if the PDF is a scan, finds the total (grand total, invoice value, order total, amount payable…), the date and the seller (a *Sold by* line), and keeps the original PDF as the receipt, shown with a picture of its first page. Password-protected PDFs need the password removed first. PDFs can also be shared to Ledger on Android.
+
+**Share to Ledger (Android).** The installed app is a share target: share a bank SMS, a bill photo or a PDF invoice to Ledger and it opens in Add. The service worker keeps the shared item on the device until the page picks it up; if it is not running yet (first launch), Ledger asks to share again.
 
 Security notes: the CSP allows `'wasm-unsafe-eval'` (WebAssembly compilation only, needed by the bill reader), and `Permissions-Policy` allows the camera for Ledger itself only (`camera=(self)`). The service worker never caches `/api` responses or pages.
 

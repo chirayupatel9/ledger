@@ -53,12 +53,14 @@ export function parseReceiptText(raw,{today=istToday()}={}){
  const amounts=l=>[...l.matchAll(/(?<![\d.,])(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d{1,7}\.\d{2}|\d{1,7})(?![\d,]|\.\d)/g)].map(m=>({v:paise(m[1]),decimal:/\.\d{2}$/.test(m[1])})).filter(a=>a.v>0);
  const pick=list=>(list.filter(a=>a.decimal).at(-1)||list.at(-1))?.v;
  let total=null;
- for(const re of [/grand\s*total|net\s*(?:payable|amount|total)|amount\s*(?:payable|due|paid)|total\s*(?:payable|amount|due|inr|rs|paid)|bill\s*amount|to\s*pay|you\s*paid|paid\s*amount/i,/\btotal\b/i]){
-  for(let i=0;i<lines.length&&total===null;i++){const l=lines[i];if(!re.test(l)||/sub\s*-?\s*total|total\s*(?:qty|quantity|items?|savings?|discount|tax|gst|cgst|sgst|igst)/i.test(l))continue;total=pick(amounts(l.replace(re,' ')))??pick(amounts(lines[i+1]||''))??null;}
+ for(const re of [/grand\s*total|net\s*(?:payable|amount|total)|amount\s*(?:payable|due|paid)|total\s*(?:payable|amount|due|inr|rs|paid)|bill\s*amount|to\s*pay|you\s*paid|paid\s*amount|(?:total\s*)?invoice\s*(?:value|total|amount)|order\s*total/i,/\btotal\b/i]){
+  for(let i=0;i<lines.length&&total===null;i++){const l=lines[i];if(!re.test(l)||/sub\s*-?\s*total|total\s*(?:qty|quantity|items?|savings?|discount|tax|taxable|gst|cgst|sgst|igst)/i.test(l))continue;total=pick(amounts(l.replace(re,' ')))??pick(amounts(lines[i+1]||''))??null;}
   if(total!==null)break;
  }
  if(total===null){const all=lines.filter(l=>!/gstin|phone|ph\b|mob|tel|fssai|invoice\s*no|bill\s*no|order/i.test(l)).flatMap(amounts).filter(a=>a.decimal);total=all.length?Math.max(...all.map(a=>a.v)):null;}
- const merchant=prettyPayee(lines.find(l=>/[a-z]{3,}/i.test(l)&&!/tax\s*invoice|invoice|receipt|^bill\b|cash\s*memo|gstin|original|duplicate|welcome|thank|^date|^time|^[\d\W]+$/i.test(l))?.replace(/[^\p{L}\p{N}&.,'() -]/gu,'').trim()||'');
+ // Invoices name the seller on a "Sold by" line; bills put the shop's name first, above the headers.
+ const seller=lines.map((l,i)=>{const m=l.match(/^(?:sold\s*by|seller|billed\s*by|supplier)\s*:?\s*(.*)$/i);return m?(m[1].trim().length>=3?m[1]:lines[i+1]):null;}).find(Boolean);
+ const merchant=prettyPayee((seller||lines.find(l=>/[a-z]{3,}/i.test(l)&&!/tax\s*invoice|invoice|receipt|^bill\b|cash\s*memo|gstin|original|duplicate|welcome|thank|^date|^time|^page\b|^order\b|bill\s*of\s*supply|^sold\s*by|^[\d\W]+$/i.test(l)))?.replace(/[^\p{L}\p{N}&.,'() -]/gu,'').replace(/\s*,.*$/,'').trim()||'');
  const gstin=String(raw||'').match(/\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/)?.[0]||null;
  return {total,date:findDate(lines.join('\n'),today),merchant,gstin};
 }

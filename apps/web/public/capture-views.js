@@ -14,7 +14,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
   draft=null;const waiting=state().receipts||[];
   modal('Add to your ledger',`<div class="capture-choices">
    <button class="capture-choice" data-capture="message">${icon('message',22)}<span><b>UPI or bank message</b><small>Paste an SMS or app notification. Ledger finds the payment, or adds it until your statement arrives.</small></span></button>
-   <button class="capture-choice" data-capture="photo">${icon('camera',22)}<span><b>Photo of a bill</b><small>Take a picture of an invoice or receipt. It is read on this device and attached to its payment.</small></span></button>
+   <button class="capture-choice" data-capture="photo">${icon('camera',22)}<span><b>Bill or invoice</b><small>Take a photo of a bill, or choose a photo or PDF invoice. It is read on this device and attached to its payment.</small></span></button>
    <button class="capture-choice" data-capture="statement">${icon('upload',22)}<span><b>Bank statement</b><small>Import a PDF, Excel or CSV statement.</small></span></button></div>
    ${waiting.length?`<h3 class="capture-heading">Bills waiting for their payment</h3><div class="capture-inbox">${waiting.map(r=>`<div class="report-line"><span>${esc(r.merchant||r.name)}<small class="sub"> · ${r.date?fmtDate(r.date):'no date'}</small></span><span>${r.total?money(r.total):''} <button class="btn" data-inbox="${esc(r.id)}">Find payment</button></span></div>`).join('')}</div>`:''}`);
   bindModal();
@@ -37,27 +37,33 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
   review();
  }
  function photoStep(){
-  modal('Photo of a bill',`<div class="capture-photo"><label class="btn primary capture-camera">${icon('camera',18)} Take a photo<input type="file" accept="image/*" capture="environment" data-photo></label><label class="btn">${icon('upload',16)} Choose a photo<input type="file" accept="image/jpeg,image/png,image/webp" data-photo></label></div>
-   <p class="sub">The bill is read on this device. The photo is saved privately with the payment as its receipt.</p>`,`<button class="btn" type="button" data-capture-back>Back</button>`);
+  modal('Bill or invoice',`<div class="capture-photo"><label class="btn primary capture-camera">${icon('camera',18)} Take a photo<input type="file" accept="image/*" capture="environment" data-photo></label><label class="btn">${icon('upload',16)} Choose a photo or PDF<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" data-photo></label></div>
+   <p class="sub">The bill is read on this device. The photo or PDF is saved privately with the payment as its receipt.</p>`,`<button class="btn" type="button" data-capture-back>Back</button>`);
   bindModal();$('[data-capture-back]').onclick=choose;
   document.querySelectorAll('[data-photo]').forEach(el=>el.onchange=()=>{const f=el.files?.[0];if(f)readPhoto(f);});
  }
+ // A photo is shrunk to JPEG and read with OCR; a PDF invoice is read from its text (OCR only if it is a scan) and kept as
+ // the original PDF. Either way the receipt shows a picture of the bill.
+ const isPDF=f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name||'');
  async function readPhoto(file){
-  modal('Reading the bill',`<div class="capture-reading"><span class="spinner" aria-hidden="true"></span><p id="capture-progress" role="status">Preparing the photo…</p></div>`);bindModal();
+  const pdf=isPDF(file),progress=p=>{const el=$('#capture-progress');if(el)el.textContent=`${p.step}… ${p.percent}%`;};
+  modal('Reading the bill',`<div class="capture-reading"><span class="spinner" aria-hidden="true"></span><p id="capture-progress" role="status">${pdf?'Reading the PDF…':'Preparing the photo…'}</p></div>`);bindModal();
   try{
-   const {shrinkImage,readImageText}=await import('./ocr.js');
-   const blob=await shrinkImage(file),url=URL.createObjectURL(blob);let text='';
-   try{text=await readImageText(blob,p=>{const el=$('#capture-progress');if(el)el.textContent=`${p.step}… ${p.percent}%`;});}catch{text='';}
+   let blob,preview,mime,text='';
+   if(pdf){if(file.size>20*1024*1024)throw Error('Please choose a PDF smaller than 20 MB.');const {readInvoicePDF}=await import('./invoice-pdf.js');const r=await readInvoicePDF(file,progress);blob=file;preview=r.preview;mime='application/pdf';text=r.text;}
+   else{const {shrinkImage,readImageText}=await import('./ocr.js');blob=preview=await shrinkImage(file);mime='image/jpeg';try{text=await readImageText(blob,progress);}catch{text='';}}
    const r=parseReceiptText(text,{today:istDate()});
-   draft={kind:'receipt',blob,url,amount:r.total?-r.total:null,date:r.date||istDate(),payee:r.merchant||'',accountId:'',unread:!r.total,choice:null};
+   draft={kind:'receipt',blob,mime,url:URL.createObjectURL(preview),amount:r.total?-r.total:null,date:r.date||istDate(),payee:r.merchant||'',accountId:'',unread:!r.total,choice:null};
    review();
-  }catch(e){toast(e.message||'This photo could not be read.');photoStep();}
+  }catch(e){toast(e.message||'This bill could not be read.');photoStep();}
  }
+ // The picture to show for a stored receipt: the photo itself, or the first page of a PDF.
+ const picture=async blob=>blob.type==='application/pdf'?(await import('./invoice-pdf.js')).previewPDF(blob):blob;
  async function fromInbox(id){
   const r=(state().receipts||[]).find(x=>x.id===id);if(!r)return;
   draft={kind:'receipt',inboxId:r.id,fileId:r.fileId,name:r.name,url:null,amount:r.total?-r.total:null,date:r.date||istDate(),payee:r.merchant||'',accountId:'',choice:null};
   review();
-  try{const res=await fetch('/api/files/'+encodeURIComponent(r.fileId),{credentials:'same-origin'});if(res.ok&&draft?.inboxId===id){draft.url=URL.createObjectURL(await res.blob());const img=$('#capture-preview');if(img)img.src=draft.url;}}catch{}
+  try{const res=await fetch('/api/files/'+encodeURIComponent(r.fileId),{credentials:'same-origin'});if(res.ok&&draft?.inboxId===id){draft.url=URL.createObjectURL(await picture(await res.blob()));const img=$('#capture-preview');if(img)img.src=draft.url;}}catch{}
  }
  const matches=()=>{const d=draft;if(!Number.isSafeInteger(d.amount)||!d.amount)return [];
   return (d.kind==='message'?findMatches(state(),{amount:d.amount,date:d.date,last4:d.parsed.last4,ref:d.ref,accountId:d.accountId||undefined})
@@ -91,7 +97,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
   form.onsubmit=async e=>{e.preventDefault();sync();await commit();};
  }
  async function storePhoto(){const d=draft;if(d.fileId)return {id:d.fileId,name:d.name,addedAt:new Date().toISOString()};
-  const id=crypto.randomUUID(),name=`bill-${d.date}-${slug(d.payee)}.jpg`,form=new FormData();form.append('file',new File([d.blob],name,{type:'image/jpeg'}));form.append('id',id);
+  const id=crypto.randomUUID(),pdf=d.mime==='application/pdf',name=`bill-${d.date}-${slug(d.payee)}.${pdf?'pdf':'jpg'}`,form=new FormData();form.append('file',new File([d.blob],name,{type:pdf?'application/pdf':'image/jpeg'}));form.append('id',id);
   await api('/api/files',{method:'POST',body:form});d.fileId=id;d.name=name;return {id,name,addedAt:new Date().toISOString()};}
  async function commit(){
   const d=draft,s=state(),error=$('#capture-error'),fail=m=>{error.textContent=m;error.hidden=false;};
@@ -121,8 +127,8 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
  async function viewReceipts(id){
   const t=state().transactions.find(x=>x.id===id);if(!t?.receipts?.length)return;
   modal(t.receipts.length>1?'Receipts':'Receipt',`<div class="receipt-list">${t.receipts.map(r=>`<figure class="receipt-item" data-receipt-item="${esc(r.id)}"><img alt="Receipt ${esc(r.name)}"><figcaption><span>${esc(r.name)}</span><span><a class="btn" download="${esc(r.name)}" hidden>Download</a> <button class="btn" data-remove-receipt="${esc(r.id)}">Remove</button></span></figcaption></figure>`).join('')}</div>`);bindModal();
-  for(const r of t.receipts){try{const res=await fetch('/api/files/'+encodeURIComponent(r.id),{credentials:'same-origin'});if(!res.ok)continue;const url=URL.createObjectURL(await res.blob()),item=document.querySelector(`[data-receipt-item="${CSS.escape(r.id)}"]`);if(!item)continue;item.querySelector('img').src=url;const a=item.querySelector('a');a.href=url;a.hidden=false;}catch{}}
-  document.querySelectorAll('[data-remove-receipt]').forEach(el=>el.onclick=async()=>{if(!confirm('Remove this receipt? The photo is deleted.'))return;t.receipts=t.receipts.filter(r=>r.id!==el.dataset.removeReceipt);if(!t.receipts.length)delete t.receipts;if(await save('Receipt removed')){$('#modal').close();render();toast('Receipt removed');}});
+  for(const r of t.receipts){try{const res=await fetch('/api/files/'+encodeURIComponent(r.id),{credentials:'same-origin'});if(!res.ok)continue;const file=await res.blob(),item=document.querySelector(`[data-receipt-item="${CSS.escape(r.id)}"]`);if(!item)continue;item.querySelector('img').src=URL.createObjectURL(await picture(file));const a=item.querySelector('a');a.href=URL.createObjectURL(file);if(file.type==='application/pdf')a.textContent='Download PDF';a.hidden=false;}catch{}}
+  document.querySelectorAll('[data-remove-receipt]').forEach(el=>el.onclick=async()=>{if(!confirm('Remove this receipt? The photo or PDF is deleted.'))return;t.receipts=t.receipts.filter(r=>r.id!==el.dataset.removeReceipt);if(!t.receipts.length)delete t.receipts;if(await save('Receipt removed')){$('#modal').close();render();toast('Receipt removed');}});
  }
  function inboxStrip(){const n=(state().receipts||[]).length;return n?`<div class="review-strip"><div class="review-icon">${icon('camera',18)}</div><div><b>${n} bill${n>1?'s are':' is'} waiting for ${n>1?'their payments':'its payment'}.</b><p>Once the statement with ${n>1?'them':'it'} is imported, match ${n>1?'each bill':'the bill'} to its payment.</p></div><button class="btn" data-action="capture">Match bills ${icon('chevron',12)}</button></div>`:'';}
  // Something shared to Ledger from another app (Android): the service worker keeps it until the page picks it up.

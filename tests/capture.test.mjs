@@ -76,3 +76,10 @@ test('payments added from the phone are valid ledger records and are replaced by
  assert.deepEqual({name:merged.displayName,note:merged.note,receipts:merged.receipts,category:merged.category,review:merged.review,source:merged.source},{name:'Reliance Smart',note:'Monthly groceries',receipts:bill.receipts,category:'Groceries',review:false,source:undefined});
  assert.equal(carryOver(msg,incoming[0]).category,'Uncategorized','an unreviewed phone category does not override the statement');
 });
+
+test('PDF invoices: invoice totals, the seller on a "Sold by" line, and taxable values ignored',()=>{
+ assert.deepEqual(parseReceiptText('Tax Invoice/Bill of Supply/Cash Memo\n(Original for Recipient)\nSold By :\nCloudtail India Private Limited, Bengaluru\nOrder Number: 402-1234567-8901234\nOrder Date: 18.10.2026\nInvoice Date : 18.10.2026\nSl. No Description Unit Price Qty Net Amount Tax Rate Tax Type Tax Amount Total Amount\n1 Boat Airdopes 1,016.10 1 1,016.10 18% IGST 182.90 ₹1,199.00\nTOTAL: ₹182.90 ₹1,199.00\nAmount in Words: One Thousand One Hundred Ninety-nine only',{today}),{total:119900,date:'2026-10-18',merchant:'Cloudtail India Private Limited',gstin:null});
+ assert.deepEqual(parseReceiptText('Sold By: Swiggy Limited\nInvoice Date 19-Oct-2026\nTotal Taxable Value 380.95\nCGST 9.52\nSGST 9.52\nInvoice Value 400.00',{today}),{total:40000,date:'2026-10-19',merchant:'Swiggy Limited',gstin:null});
+ assert.equal(parseReceiptText('BESCOM\nBill Date: 05/10/2026\nUnits 245\nAmount Payable Rs. 1,845.00',{today}).total,184500);
+ assert.equal(parseReceiptText('Order Summary\nItems 2\nOrder Total ₹ 2,499.00',{today}).total,249900);
+});
