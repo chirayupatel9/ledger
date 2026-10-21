@@ -171,6 +171,16 @@ The `monitor` service checks every `MONITOR_INTERVAL_MINUTES` (default 5) and se
 
 Messages name the failing check only. Install the ntfy app and subscribe to the topic in `NTFY_URL` in `.env` (the topic name is the only secret; keep it private). Send a test with `sudo docker compose exec monitor node /monitor/monitor.mjs test`. A machine that loses power or network cannot report itself; that needs a check from another machine.
 
+## Dashboard insights and report charts
+
+Computed in the browser from your ledger (`packages/domain/insights.js`, drawn by `public/charts.js` as plain SVG, no chart library). They follow the account filter; time charts cover the selected month or financial year, otherwise the last 12 months up to your latest transactions.
+
+- **Dashboard** (each can be turned off in Settings → Dashboard components): *What changed* notes (biggest category change on last month, savings rate, largest expense, a new regular payment, something unusual); **Net worth** at each month end (bank balances from running balances or confirmed closing balances, card balances owed, investments at the amount invested and at today's value for the latest month); **Coming up**: regular payments due in the next 30 days and the bank balance after them; **Spending by category** each month; **Savings rate** each month; **Tax-saving progress** for the financial year against old-regime limits (80C ₹1.5 L, 80CCD(1B) ₹50,000, 80D ₹25,000, 24(b) ₹2 L) from your tax tags.
+- **Reports**: top payees, how you pay (UPI, card, bank transfer, auto-debit, cash, cheque) each month, where the month went (opening balance → income → spending by category → invested → closing balance), unusual payments (far above the usual for that payee, possible double charges, price rises), account balances and credit-card amounts owed over time, and a 26-week spending calendar with weekday averages.
+- **Investments**: allocation by fund (today's value where known), SIP vs lump sum, and invested vs worth per fund.
+
+Accounts with no known balance (no running balance and no confirmed closing balance) are left out of net worth and balances, and named under the chart.
+
 ## Investments (SIPs and mutual funds)
 
 The **Investments** page (`/investments`) brings together two sources (`packages/domain/investments.js`):

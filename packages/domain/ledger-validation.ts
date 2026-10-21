@@ -62,7 +62,7 @@ export function validateLedger(input:any):LedgerState{
  const rules=input.rules.map((r:any)=>{if(!r||!string(r.keyword,200)||!r.keyword.trim()||!allowed.has(r.category))fail('Invalid category rule.');return {keyword:r.keyword.trim(),category:r.category}});
  if(input.preferences!==undefined&&(!input.preferences||typeof input.preferences!=='object'||Array.isArray(input.preferences)))fail('Invalid display preferences.');
  const preferences={...defaultPreferences,...input.preferences};
- if(Object.keys(preferences).some(k=>!Object.hasOwn(defaultPreferences,k))||!['light','dark','system'].includes(preferences.theme)||![14,16,18,20,22].includes(preferences.fontSize)||!['sans','system','serif'].includes(preferences.fontFamily)||!['comfortable','compact'].includes(preferences.density)||['showChart','showCategories','showRecent','showBalances','showLabelSource','expandNarration'].some(k=>typeof preferences[k]!=='boolean'))fail('Invalid display preferences.');
+ if(Object.keys(preferences).some(k=>!Object.hasOwn(defaultPreferences,k))||!['light','dark','system'].includes(preferences.theme)||![14,16,18,20,22].includes(preferences.fontSize)||!['sans','system','serif'].includes(preferences.fontFamily)||!['comfortable','compact'].includes(preferences.density)||['showChart','showCategories','showRecent','showBalances','showLabelSource','expandNarration','showInsights','showNetWorth','showUpcoming','showCategoryTrend','showSavingsTrend','showTax'].some(k=>typeof preferences[k]!=='boolean'))fail('Invalid display preferences.');
  if(input.titleRules!==undefined&&!Array.isArray(input.titleRules))fail('Invalid title rules.');
  if(input.titleRules?.length>500)fail('Up to 500 title rules are supported.');
  const ruleIds=new Set(),matches=new Set();

@@ -1,3 +1,4 @@
+import {donut,barList} from './charts.js';
 import {summarizeInvestments,fundSchemes,schemeKey} from './investments.js';
 import {transactionLabel} from './transaction-labels.js';
 import {fmtDate,istDate} from './format.js';
@@ -17,7 +18,7 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
  const wanted=()=>{const s=getState();return JSON.stringify([fundSchemes(s).map(f=>schemeKey(f.scheme)).sort(),s.fundMatches||[]]);};
  function loadNavs(){
   if(!api||loading)return;const key=wanted();if(key===navFor&&Date.now()-navAt<(failed?300000:3600000))return;
-  loading=true;api('/api/navs').then(d=>{navs=d;failed=false}).catch(()=>{failed=true}).finally(()=>{loading=false;navFor=key;navAt=Date.now();if(globalThis.document?.querySelector('#page-content .funds-card'))render();});
+  loading=true;api('/api/navs').then(d=>{navs=d;failed=false}).catch(()=>{failed=true}).finally(()=>{loading=false;navFor=key;navAt=Date.now();if(globalThis.document?.querySelector('#page-content .funds-card, #net-worth-card'))render();});
  }
  const entry=scheme=>navs?.schemes.find(x=>schemeKey(x.scheme)===schemeKey(scheme))||null;
  const live=()=>navs?Object.fromEntries(navs.schemes.filter(x=>x.match).map(x=>[schemeKey(x.scheme),{...x.match,source:x.source}])):null;
@@ -84,7 +85,7 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
   const s=summarizeInvestments(getState(),{today:istDate(),navs:live()});
   if(!s.funds.length&&!s.bank.length)return empty();
   if(s.funds.length)loadNavs();
-  return metrics(s)+strips(s)+sipsCard(s)+(s.funds.length?fundsCard(s):'')+monthsCard(s)+bankCard(s);
+  return metrics(s)+strips(s)+sipsCard(s)+(s.funds.length?fundsCard(s)+allocationCard(s):'')+monthsCard(s)+bankCard(s);
  }
  // Choosing the AMFI scheme for a fund: the likeliest schemes, a search, or no match (value at the reports' NAV).
  const option=(m,checked)=>`<label class="pair-row nav-option"><input type="radio" name="nav-code" value="${m.code}" ${checked?'checked':''}><span><b>${esc(m.name)}</b><small>${esc([m.plan,m.option].filter(Boolean).join(' · ')||'Plan and option not listed')} · ${esc(m.amc)} · AMFI ${m.code}${m.isins?.length?` · ISIN ${esc(m.isins.join(', '))}`:''}</small></span><span class="amount">${rupees(m.nav)}<small>${fmtDate(m.date)}</small></span></label>`;
@@ -108,5 +109,16 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
   };
  }
  function bind(){document.querySelectorAll('[data-fund-match]').forEach(el=>el.onclick=()=>choose(el.dataset.fundMatch));}
- return {page,bind};
+ // Where the money is invested: each fund's share (today's value where known), SIP vs lump sum, and invested vs worth.
+ function allocationCard(s){
+  const colours=['#2c6554','#7c9cbf','#c5a15a','#b07a9e','#d88a5a','#6f9a4c','#4f8a8b','#8a948e'],funds=s.funds.map(f=>({f,value:f.worth??f.net})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value);if(!funds.length)return '';
+  const total=funds.reduce((v,x)=>v+x.value,0),valued=funds.some(x=>x.f.worth!==null),sip=s.funds.reduce((v,f)=>v+f.sipRows.reduce((w,t)=>w+t.amount,0),0),paid=s.funds.reduce((v,f)=>v+f.paid,0);
+  return `<div class="card allocation-card"><div class="table-toolbar"><div><h2>Where your money is invested</h2><p class="sub">${valued?'By value (today’s NAV where matched, else the latest in your reports)':'By amount invested'}</p></div></div><div class="insight-body">
+   ${donut(funds.map((x,i)=>({label:x.f.scheme,value:x.value,color:colours[i%colours.length]})),{format:v=>money(v),label:'Investments by fund',centre:money(total,true)})}
+   <h3 class="insight-sub">SIP or lump sum</h3>${barList([{label:'Through SIPs',value:sip,color:'#2c6554'},{label:'Lump sum',value:Math.max(0,paid-sip),color:'#c5a15a'}].filter(x=>x.value),{format:v=>money(v)})}
+   ${valued?`<h3 class="insight-sub">Invested and worth now</h3>${barList(funds.filter(x=>x.f.worth!==null).map(x=>({label:x.f.scheme,value:x.f.worth,sub:`invested ${money(x.f.paid-x.f.redeemed)} · ${x.f.gain>=0?'gain':'loss'} ${money(Math.abs(x.f.gain))}`,color:x.f.gain>=0?'#2c6554':'#d88a5a'})),{format:v=>money(v)})}`:''}</div></div>`;
+ }
+ // For the dashboard's net worth: the same summary, with today's NAVs when they have been fetched.
+ function summary(){const s=summarizeInvestments(getState(),{today:istDate(),navs:live()});if(s.funds.length)loadNavs();return s;}
+ return {page,bind,summary};
 }

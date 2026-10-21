@@ -127,3 +127,28 @@ nav a[data-page=overview],nav a[data-page=transactions],nav a[data-page=investme
 @media(max-width:580px){.capture-button{display:none}}
 .capture-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}.capture-fields .field{margin:0}.capture-fields .wide{grid-column:1/-1}
 .capture-quote{max-height:7.8em;overflow:auto}
+/* Insight cards and charts (insights-views.js, charts.js) */
+.insight-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:12px;margin:0 0 22px}
+.insight-chip{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:0.75rem;line-height:1.5}
+.insight-chip svg{flex:none;margin-top:2px}.insight-chip p{margin:0}.insight-chip.warn svg{color:#a5634e}.insight-chip.good svg{color:var(--green)}.insight-chip.info svg{color:#7c9cbf}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:22px;margin-bottom:22px}
+.insight-card .insight-body,.allocation-card .insight-body{padding:14px 22px 20px}.allocation-card{margin-top:22px}
+.insight-figure{font-size:1.25rem;color:inherit}.insight-card .card-head .up{color:#2f7d4f}.insight-card .card-head .down{color:#a5634e}
+.insight-note{margin:10px 0 0;font-size:0.6875rem}.insight-empty{margin:0;padding:6px 0}
+.insight-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:0.75rem}
+.upcoming-date{display:inline-block;min-width:52px}
+.insight-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px;font-size:0.625rem;color:var(--muted);text-align:center}.insight-weekdays b{display:block;color:inherit;font-size:0.6875rem;margin-top:3px}
+.insight-figures{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:10px;font-size:0.75rem}.insight-sub{margin:20px 0 10px;font-size:0.75rem}
+.kit{display:block;width:100%;height:auto;overflow:visible}.kit text{font-size:11px;fill:#8a948e}.kit .grid{stroke:#e6e9e3;stroke-dasharray:3 4}.kit .zero{stroke:#b9c0b8;stroke-dasharray:none}
+.kit-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:0.6875rem;color:var(--muted)}.kit-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.kit-legend-list{flex-direction:column;gap:7px;margin:0}.kit-legend-list span{display:flex;align-items:center;gap:6px}.kit-legend-list i{flex:none;margin:0}.kit-legend-list b{margin-left:auto;padding-left:12px;color:inherit;font-weight:600;white-space:nowrap}
+.kit-bars{display:grid;gap:12px}.kit-bar-head{display:flex;justify-content:space-between;gap:12px;font-size:0.75rem;margin-bottom:5px}.kit-bar-head span{min-width:0;overflow-wrap:anywhere}.kit-bar-head b{white-space:nowrap}.kit-bar-head small{color:var(--muted);font-weight:400}
+.kit-track{position:relative;height:8px;border-radius:4px;background:#eef1ea;overflow:hidden}.kit-track i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--green)}.kit-track i.full{background:#6f9a4c}
+.kit-note{display:block;margin-top:5px;font-size:0.6875rem;color:var(--muted)}
+.kit-fall .kit-track i.up{background:#2f7d4f}.kit-fall .kit-track i.down{background:#d88a5a}.kit-fall .kit-track i.total{background:#7c9cbf}.kit-fall b.up{color:#2f7d4f}.kit-fall b.down{color:#a5634e}
+.kit-scroll{overflow-x:auto}.kit-heat .heat.l0{fill:#eef1ea}.kit-heat .heat.l1{fill:#cfe0c4}.kit-heat .heat.l2{fill:#9cc28d}.kit-heat .heat.l3{fill:#5f9a6b}.kit-heat .heat.l4{fill:#2c6554}
+.kit-donut{display:grid;grid-template-columns:minmax(120px,170px) 1fr;gap:22px;align-items:center}.kit-donut svg{width:100%}.kit-centre{font-size:13px;font-weight:700;fill:currentColor}
+@media(max-width:580px){.kit-donut{grid-template-columns:1fr}.kit-donut svg{max-width:180px;margin:0 auto}.insight-card .insight-body,.allocation-card .insight-body{padding:12px 14px 16px}}
+:root[data-theme=dark] .insight-chip{background:#121c18}:root[data-theme=dark] .kit .grid{stroke:#26332e}:root[data-theme=dark] .kit text{fill:#7f9187}:root[data-theme=dark] .kit-track{background:#1b2823}
+:root[data-theme=dark] .kit-heat .heat.l0{fill:#1b2823}:root[data-theme=dark] .kit-heat .heat.l1{fill:#24432f}:root[data-theme=dark] .kit-heat .heat.l2{fill:#2f6544}:root[data-theme=dark] .kit-heat .heat.l3{fill:#4f8f63}:root[data-theme=dark] .kit-heat .heat.l4{fill:#8fc9ac}
+@media(max-width:580px){.kit:not(.kit-heat) text{font-size:19px}}

@@ -115,7 +115,7 @@ test('Excel statements: XLSX date cells and legacy XLS text rows import with bal
  await assert.rejects(readSpreadsheet(new TextEncoder().encode('not a workbook at all').buffer));
 });
 test('browser copies of shared domain modules are identical',()=>{
- for(const file of ['books.js','tax.js','accounts.js','transfers.js','recurring.js','preferences.js','categories.js','investments.js','capture.js'])assert.equal(readFileSync(new URL('../packages/domain/'+file,import.meta.url),'utf8'),readFileSync(new URL('../apps/web/public/'+file,import.meta.url),'utf8'),file);
+ for(const file of ['books.js','tax.js','accounts.js','transfers.js','recurring.js','preferences.js','categories.js','investments.js','capture.js','insights.js'])assert.equal(readFileSync(new URL('../packages/domain/'+file,import.meta.url),'utf8'),readFileSync(new URL('../apps/web/public/'+file,import.meta.url),'utf8'),file);
 });
 test('review fixes: unreadable rows with figures are reported, footers stop parsing, period ignores narrations',()=>{
  const data=parseCSV(['Date,Narration,Debit,Credit,Balance','2026.10.01,COFFEE,"1.234,56",,','01/10/2026,RENT FROM 01/09/2026 TO 30/09/2026,,500.00,500.00','STATEMENT SUMMARY,,,,','01/10/2026,Should not import,1.00,,'].join('\n'));
