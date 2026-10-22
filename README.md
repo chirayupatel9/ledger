@@ -141,6 +141,10 @@ A UPI narration names the person or shop you paid (or who paid you), their UPI I
 
 Fields are recognised by what they look like (a UPI ID, the 12-digit reference, an IFSC or bank name, even when cut short to fit the column), so the payee becomes the transaction's name ("Ramesh Kumar") and the UPI ID and your note show underneath. Default notes the apps fill in ("UPI", "Payment from PhonePe", "Collect request"…) are not shown. Shops are named by brand, including their legal names (Bundl Technologies → Swiggy, Avenue Supermarts → DMart, Kiranakart → Zepto, One97 → Paytm). With no name in the narration, the UPI ID itself is used; only a narration with neither stays "UPI payment". Your own names and title rules still come first, and the original narration never changes.
 
+## Undo and change history
+
+Every save keeps the ledger as it was before it (`ledger_versions`, the last 30 per account). Right after a change, the message at the bottom offers **Undo**; after an undo it offers **Redo**. **Ctrl+Z** (⌘Z on a Mac), outside a text box, undoes the latest change. **Change history** (the clock in the header, or Settings → Change history & undo) lists the last 30 changes: undo the latest, or go back to before an earlier one, which also undoes every change after it. Going back is a change of its own, so it can be undone. A statement original or receipt photo you removed is still deleted straight away; undoing that change brings everything else back and says the file could not come back. Starting over (removing everything) clears the history. `POST /api/ledger/restore {revision, to}` restores the version saved at revision `to`; `GET /api/ledger/history` lists them. Run `tests/history-browser.mjs` for the live checks.
+
 ## Tags
 
 A transaction can carry any number of tags (up to 20, each up to 40 characters, no commas), for things that cut across categories and accounts: a trip, a project, what you will claim back. Tags match whatever their case, and the spelling already in your ledger is reused.

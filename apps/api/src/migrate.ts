@@ -55,5 +55,11 @@ try {
  CREATE TABLE fund_navs(code integer PRIMARY KEY,isins text[] NOT NULL DEFAULT '{}',name text NOT NULL,plan text NOT NULL DEFAULT '',option text NOT NULL DEFAULT '',amc text NOT NULL DEFAULT '',category text NOT NULL DEFAULT '',nav numeric NOT NULL CHECK(nav>0),nav_date date NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
  INSERT INTO ledger_migrations(version) VALUES(6);
  `);}
+ // The ledger as it was before each of the last changes, so a change can be undone (ledger.ts keeps the latest 30).
+ const versionsMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=7');
+ if(!versionsMigration.rowCount){await client.query(`
+ CREATE TABLE ledger_versions(owner text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,revision integer NOT NULL,action text NOT NULL,at timestamptz NOT NULL DEFAULT now(),state jsonb NOT NULL,PRIMARY KEY(owner,revision));
+ INSERT INTO ledger_migrations(version) VALUES(7);
+ `);}
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

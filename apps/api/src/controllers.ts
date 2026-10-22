@@ -24,6 +24,12 @@ export class LedgerController{
   const result=await this.ledger.save(req.user.id,body);const {conflict,...data}=result;
   return res.status(conflict?409:200).json(conflict?{...data,error:'Your ledger changed on another device. Review the latest data and retry.'}:data);
  }
+ // The last changes, and undo: restore the ledger as it was before one of them.
+ @Get('ledger/history') history(@Req() req:UserRequest){return this.ledger.history(req.user.id);}
+ @Post('ledger/restore') async restore(@Req() req:UserRequest,@Body() body:unknown,@Res() res:Response){
+  await rateLimit('restore:'+req.user.id,60,60);const result=await this.ledger.restore(req.user.id,body);const {conflict,...data}=result as any;
+  return res.status(conflict?409:200).json(conflict?{...data,error:'Your ledger changed on another device. Review the latest data and retry.'}:data);
+ }
  @Get('activity') activity(@Req() req:UserRequest){return this.ledger.activity(req.user.id);}
  // Today's official NAV for each fund scheme in your ledger, and AMFI schemes to choose from when the match is unclear.
  @Get('navs') async navs(@Req() req:UserRequest){return ledgerNavs((await this.ledger.load(req.user.id)).state);}

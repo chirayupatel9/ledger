@@ -295,3 +295,9 @@ select option:checked{background-color:var(--surface-4)}
 .title-inline .bank-actions{margin:0}
 .title-inline :is(.sub,.notice){grid-column:1/-1;margin:0}
 @media(max-width:650px){.title-inline{grid-template-columns:1fr}}
+/* Undo: the toast's button, and the change history */
+#toast{align-items:center;gap:16px}
+#toast button{flex:none;padding:0;background:none;color:#cbe3aa;font-weight:700;font-size:inherit;text-decoration:underline;text-underline-offset:3px}
+.history-list .report-line{padding:12px 0;align-items:center;gap:12px}
+.history-list .report-line .btn{flex:none}
+.history-note{margin-top:14px}
