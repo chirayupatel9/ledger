@@ -141,6 +141,14 @@ A UPI narration names the person or shop you paid (or who paid you), their UPI I
 
 Fields are recognised by what they look like (a UPI ID, the 12-digit reference, an IFSC or bank name, even when cut short to fit the column), so the payee becomes the transaction's name ("Ramesh Kumar") and the UPI ID and your note show underneath. Default notes the apps fill in ("UPI", "Payment from PhonePe", "Collect request"…) are not shown. Shops are named by brand, including their legal names (Bundl Technologies → Swiggy, Avenue Supermarts → DMart, Kiranakart → Zepto, One97 → Paytm). With no name in the narration, the UPI ID itself is used; only a narration with neither stays "UPI payment". Your own names and title rules still come first, and the original narration never changes.
 
+## Categories learned from payees
+
+Ledger remembers the category you use for each payee: its UPI ID, and its title, separately for money out and money in (`packages/domain/learn.js`). It learns from settled transactions (not in Needs review, not Uncategorized, not a linked transfer) when one category is clearly the usual one (at least two thirds of them). Generic titles such as "UPI payment" teach nothing.
+
+- **On import** (and for a UPI message or bill added from the phone), a row takes the category you use for that payee. Seen twice or more before, it is settled; seen once, it still waits in Needs review. Your own category rules come first.
+- **In Needs review**, a row shows the learned category as a suggestion (*Groceries? Use it*), and **Use N suggested categories** takes them all.
+- **When you change a transaction's category**, the message offers to put the same payee's other transactions in it too.
+
 ## Undo and change history
 
 Every save keeps the ledger as it was before it (`ledger_versions`, the last 30 per account). Right after a change, the message at the bottom offers **Undo**; after an undo it offers **Redo**. **Ctrl+Z** (⌘Z on a Mac), outside a text box, undoes the latest change. **Change history** (the clock in the header, or Settings → Change history & undo) lists the last 30 changes: undo the latest, or go back to before an earlier one, which also undoes every change after it. Going back is a change of its own, so it can be undone. A statement original or receipt photo you removed is still deleted straight away; undoing that change brings everything else back and says the file could not come back. Starting over (removing everything) clears the history. `POST /api/ledger/restore {revision, to}` restores the version saved at revision `to`; `GET /api/ledger/history` lists them. Run `tests/history-browser.mjs` for the live checks.

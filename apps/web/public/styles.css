@@ -301,3 +301,6 @@ select option:checked{background-color:var(--surface-4)}
 .history-list .report-line{padding:12px 0;align-items:center;gap:12px}
 .history-list .report-line .btn{flex:none}
 .history-note{margin-top:14px}
+/* A category learned from your earlier payments to the same payee, offered on rows in Needs review */
+.suggest-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:3px 8px;border:1px dashed var(--accent-line);border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font:inherit;font-size:0.625rem;font-weight:600;cursor:pointer}
+.suggest-chip:hover{border-style:solid}
