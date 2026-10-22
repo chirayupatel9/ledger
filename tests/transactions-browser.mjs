@@ -3,7 +3,7 @@ import {randomUUID,randomBytes} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {mkdirSync} from 'node:fs';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
-const base='https://ledger.chirayupatel.dev';
+const base=process.env.LEDGER_URL||'https://ledger.chirayupatel.dev';
 const users=[1,2].map(()=>({name:'Transaction editing QA',email:`bank-qa-${randomUUID()}@example.test`,password:randomBytes(24).toString('base64url')}));
 async function operator(create,user){return new Promise((resolve,reject)=>{const args=create?['node','apps/api/dist/apps/api/src/create-account.js']:['node','--input-type=module','-e',`import {pool} from './apps/api/dist/apps/api/src/database.js';let s='';for await(const c of process.stdin)s+=c;const {email}=JSON.parse(s);if(!/^bank-qa-[a-f0-9-]+@example.test$/.test(email))throw Error('Unexpected email');await pool.query('DELETE FROM "user" WHERE email=$1',[email]);await pool.end();`];const child=spawn('sudo',['-n','docker','compose','exec','-T','api',...args],{stdio:['pipe','ignore','pipe']});child.stderr.on('data',()=>{});child.on('error',reject);child.on('exit',code=>code===0?resolve():reject(Error('Test account operation failed')));child.stdin.end(JSON.stringify(user));});}
 const raw='BRANCH - CITY INF/INFT/000111222333/Self transfer /PERSONALICICI INF/NEFT/IN00000000000000/BARB0TESTING/self transfer';
@@ -12,7 +12,7 @@ try{
  for(const user of users){await operator(true,user);created.push(user);}
  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- assert.equal((await context.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[0].email,password:users[0].password}})).status(),200);
+ {const signed=await context.request.post(base+'/api/auth/sign-in/email',{headers:{Origin:base},data:{email:users[0].email,password:users[0].password}});assert.equal(signed.status(),200,'sign-in: '+(await signed.text()).slice(0,300));}
  const state=async()=>{const response=await context.request.get(base+'/api/ledger');assert.equal(response.status(),200);return response.json();};
  const put=async data=>context.request.put(base+'/api/ledger',{headers:{Origin:base},data});
  const initial=await state();initial.state={schemaVersion:2,initialized:true,accounts:[{id:'a',name:'ICICI Personal',bank:'ICICI Bank',type:'Savings',last4:'1234',currency:'INR',archived:false}],statements:[{id:'s',accountId:'a',account:'ICICI Personal',name:'transactions.csv',count:3,created:'2026-10-16'}],rules:[],transactions:[

@@ -3,11 +3,17 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
+  # Unit tests, type checks and the production build.
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,3 +24,65 @@ jobs:
       - run: npm test
       - run: npm run check
       - run: npm run build
+
+  # The real stack in Docker (the same images production builds): PostgreSQL, migrations, API, web, Caddy and a local
+  # mail inbox. Then the integration test and a few browser suites against it, with throwaway accounts.
+  stack:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      LEDGER_URL: http://localhost:5800
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Configure a local stack with open sign-up (throwaway secrets)
+        run: |
+          node deploy/setup.mjs
+          echo 'SIGNUP_MODE=open' >> .env
+      - name: Build and start the stack
+        run: sudo docker compose --profile local up -d --build
+      - name: Wait for the app
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:5800/api/health; then exit 0; fi
+            sleep 5
+          done
+          sudo docker compose ps; sudo docker compose logs --tail=100; exit 1
+      - name: Integration test (signup, email verification, sessions, isolation, conflicts, CSRF, deletion)
+        run: npm run test:integration
+      - name: An account made with the operator tool can sign in
+        run: |
+          email="bank-qa-$(cat /proc/sys/kernel/random/uuid)@example.test" password="ci-password-$(cat /proc/sys/kernel/random/uuid)"
+          printf '{"email":"%s","name":"CI","password":"%s"}' "$email" "$password" | sudo docker compose exec -T api node apps/api/dist/apps/api/src/create-account.js
+          status=$(curl -sS -o /tmp/sign-in.json -w '%{http_code}' -H 'Origin: http://localhost:5800' -H 'Content-Type: application/json' -d "{\"email\":\"$email\",\"password\":\"$password\"}" http://localhost:5800/api/auth/sign-in/email)
+          echo "sign-in status $status"; head -c 300 /tmp/sign-in.json; echo
+          test "$status" = 200
+      - name: Install the browser for the live suites
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p browser && cd browser
+          echo '{"name":"ledger-ci-browser","private":true}' > package.json
+          npm install --no-audit --no-fund playwright@1.64.1
+          npx playwright install chromium-headless-shell
+      # Sign-in is limited to 10 a minute, so the suites run a minute apart.
+      - name: Browser suites
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/browser/node_modules/playwright/index.mjs
+        run: |
+          for t in transactions settings history budgets; do
+            echo "::group::$t"
+            node tests/$t-browser.mjs
+            echo "::endgroup::"
+            sleep 65
+          done
+      - name: Logs on failure
+        if: failure()
+        run: sudo docker compose logs --tail=200
+      - name: Stop the stack
+        if: always()
+        run: sudo docker compose --profile local down -v

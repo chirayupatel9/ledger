@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {setTimeout as sleep} from 'node:timers/promises';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE||'playwright');
-const base='http://localhost:5800',email=`browser-${randomUUID()}@example.test`,password='Browser test '+randomUUID();
+const base=process.env.LEDGER_URL||'http://localhost:5800',email=`browser-${randomUUID()}@example.test`,password='Browser test '+randomUUID();
 const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
 const errors=[];page.on('pageerror',error=>errors.push(error.message));

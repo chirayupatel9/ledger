@@ -84,6 +84,15 @@ Backups contain account information, original bank statements, and pending email
 
 The mail outbox retries failed SMTP deliveries up to eight times with exponential delay. Watch `mail_outbox` for exhausted attempts. `/api/health` checks database connectivity; configure external uptime monitoring and disk/backup/SMTP alerts for public operation. Caddy access logging is intentionally off so verification URLs are not recorded. Server errors log codes, not financial request bodies or credentials.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to main and every pull request (and by hand):
+
+- **check**: unit tests, type checks and the production build.
+- **stack**: builds the production Docker images and starts the local stack on the runner (`deploy/setup.mjs` with open sign-up and throwaway secrets, `docker compose --profile local`), then runs the integration test (real PostgreSQL and SMTP through Mailpit) and the transactions, settings, history and budgets browser suites against it (`LEDGER_URL=http://localhost:5800`). Every browser suite takes its address from `LEDGER_URL` (a unit test checks this), so CI never touches the live site.
+
+A local stack delivers email for reserved test domains (`.test`, `.example`…) to Mailpit; a public deployment records it but never sends it.
+
 ## Validation
 
 ```sh

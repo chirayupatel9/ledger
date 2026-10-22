@@ -1,11 +1,12 @@
 import nodemailer from 'nodemailer';
 import { pool, transaction } from './database.js';
 import { config } from './config.js';
-// Reserved test domains (.test, .invalid, .example, .localhost) can never receive mail: record the message but never send it.
+// Reserved test domains (.test, .invalid, .example, .localhost) can never receive mail: on a public deployment the message
+// is recorded but never sent. A local stack sends everything to its own test inbox (Mailpit), so those arrive there.
 export const reservedAddress=(email: string)=>/\.(?:test|invalid|example|localhost)$/i.test(email.split('@')[1]||'');
 // Every email has a plain-text body and, from packages/domain/emails.js, a branded HTML version.
 export async function enqueueEmail(to: string, {subject,text,html}:{subject:string;text:string;html?:string}, {suppress=false}={}) {
-  await pool.query('INSERT INTO mail_outbox(recipient,subject,body,html,suppressed) VALUES ($1,$2,$3,$4,$5)', [to,subject,text,html||null,suppress||reservedAddress(to)]);
+  await pool.query('INSERT INTO mail_outbox(recipient,subject,body,html,suppressed) VALUES ($1,$2,$3,$4,$5)', [to,subject,text,html||null,suppress||(!config.local&&reservedAddress(to))]);
 }
 export function startMailer() {
   const transport = nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,
