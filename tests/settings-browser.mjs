@@ -32,7 +32,7 @@ try{
  page.once('dialog',d=>d.dismiss());await page.locator('nav [data-page="overview"]').click();assert.equal(new URL(page.url()).pathname,'/settings','unsaved settings keep you on the page');
  mkdirSync('playwright-results',{recursive:true});await page.screenshot({path:'playwright-results/settings-dark.png',fullPage:true});
  await form.getByRole('button',{name:'Save settings'}).click();await page.locator('#toast').getByText('Display settings saved').waitFor();
- assert.deepEqual((await state()).state.preferences,{theme:'dark',fontSize:20,fontFamily:'serif',density:'compact',showChart:false,showCategories:true,showRecent:true,showBalances:false,showLabelSource:false,expandNarration:true,showInsights:true,showNetWorth:true,showUpcoming:true,showCategoryTrend:true,showSavingsTrend:true,showTax:true,dashboardOrder:[],reportsOrder:[],reportsHidden:[]});
+ assert.deepEqual((await state()).state.preferences,{theme:'dark',fontSize:20,fontFamily:'serif',density:'compact',showChart:false,showCategories:true,showRecent:true,showBalances:false,showLabelSource:false,expandNarration:true,showInsights:true,showNetWorth:true,showUpcoming:true,showBudgets:true,showCategoryTrend:true,showSavingsTrend:true,showTax:true,dashboardOrder:[],reportsOrder:[],reportsHidden:[]});
  await page.reload();await form.waitFor();assert.deepEqual(await root(),{font:'20px',theme:'dark',family:'serif',density:'compact',bg:'rgb(15, 23, 20)'},'saved preferences apply after reload');
 
  // 2. An older tab that does not know about preferences cannot erase them.

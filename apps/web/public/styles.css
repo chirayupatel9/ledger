@@ -310,3 +310,14 @@ select option:checked{background-color:var(--surface-4)}
 .tag-rule-form .review-check{grid-column:1/-1}
 .tag-rule-form .btn{grid-column:1/-1;justify-self:start}
 @media(max-width:650px){.tag-rule-form{grid-template-columns:1fr}}
+/* Budgets */
+.budget-row .budget-status{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;font-size:0.625rem;font-weight:600;vertical-align:1px;background:var(--accent-soft);color:var(--accent-ink)}
+.budget-row.over .budget-status{background:var(--danger-soft);color:var(--danger-ink)}
+.budget-row:is(.near,.pace) .budget-status{background:var(--warn-soft);color:var(--warn-ink)}
+.budget-row.over .kit-track i{background:#c8664a}
+.budget-row.near .kit-track i{background:#d4a33a}
+.budget-row.pace .kit-track i{background:#c5a15a}
+.budget-form{display:grid}
+.budget-edit-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:0.75rem}
+.budget-edit-row small{display:block;margin-top:2px}
+@media(max-width:650px){.budget-edit-row{grid-template-columns:minmax(0,1fr) 110px}}

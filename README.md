@@ -149,6 +149,10 @@ Ledger remembers the category you use for each payee: its UPI ID, and its title,
 - **In Needs review**, a row shows the learned category as a suggestion (*Groceries? Use it*), and **Use N suggested categories** takes them all.
 - **When you change a transaction's category**, the message offers to put the same payee's other transactions in it too.
 
+## Monthly budgets
+
+**Budgets** on the dashboard (Set budgets / Edit budgets) holds a monthly limit for any spending category and for all spending, in rupees (`budgets` in the ledger; `packages/domain/budgets.js`). Spending counts expenses after refunds, as on the dashboard; transfers and investments do not count. The editor shows last month's spending for each category as a guide. The card shows each budget for this month (or the month chosen at the top): spent, left or over, and a status: *On track*, *On pace to go over* (from the first week, if the month's pace would pass the limit), *Nearly used* (80% or more) or *Over*. A row opens that category's transactions for the month. Budgets over or nearly used lead the dashboard's *What changed* notes. Hide the card with Customize or Settings → Dashboard components.
+
 ## Undo and change history
 
 Every save keeps the ledger as it was before it (`ledger_versions`, the last 30 per account). Right after a change, the message at the bottom offers **Undo**; after an undo it offers **Redo**. **Ctrl+Z** (⌘Z on a Mac), outside a text box, undoes the latest change. **Change history** (the clock in the header, or Settings → Change history & undo) lists the last 30 changes: undo the latest, or go back to before an earlier one, which also undoes every change after it. Going back is a change of its own, so it can be undone. A statement original or receipt photo you removed is still deleted straight away; undoing that change brings everything else back and says the file could not come back. Starting over (removing everything) clears the history. `POST /api/ledger/restore {revision, to}` restores the version saved at revision `to`; `GET /api/ledger/history` lists them. Run `tests/history-browser.mjs` for the live checks.

@@ -7,6 +7,7 @@ import {taxSummary,financialYear} from './tax.js';
 import {summarize} from './core.js';
 import {statementBalances,addDays} from './books.js';
 import {addMonths} from './investments.js';
+import {budgetAlerts} from './budgets.js';
 const istToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 export const monthsUpTo=(month,n)=>Array.from({length:n},(_,i)=>addMonths(month+'-01',i-n+1).slice(0,7));
 const monthEnd=m=>addDays(addMonths(m+'-01',1),-1);
@@ -172,5 +173,6 @@ export function insightCards(state,rows,{today=istToday(),titleRules=state.title
  if(fresh)cards.push({kind:'new-regular',tone:'info',amount:fresh.monthly,text:`New regular payment: ${fresh.payee}, about {amount} a month since ${new Date(fresh.first+'T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',day:'numeric',month:'short'})}.`});
  const odd=unusualActivity(state,{today,titleRules})[0];
  if(odd)cards.push({kind:'unusual',tone:'warn',amount:odd.amount,usual:odd.usual,text:odd.kind==='large'?`${odd.payee} charged {amount}, much more than the usual {usual}.`:odd.kind==='duplicate'?`Possible double charge: ${odd.payee}, {amount} twice.`:`${odd.payee} went up to {amount} from {usual}.`});
- return {month,previous:prev,cards:cards.slice(0,5)};
+ // Budgets you went over or nearly used up this month come first.
+ return {month,previous:prev,cards:[...budgetAlerts(state,{today,label}).slice(0,2),...cards].slice(0,5)};
 }
