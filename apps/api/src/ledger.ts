@@ -25,7 +25,7 @@ export class LedgerService{
    if(before.state.schemaVersion===2&&!Array.isArray(input.state?.accounts))throw new HttpException('This page uses an older ledger format. Reload the page before saving.',400);
    // Older open tabs and older exports must not silently erase newer account preferences/rules.
    const keep=(key:string)=>input.state?.[key]===undefined?before.state[key]:input.state[key];
-   return this.commit(client,owner,before,{...input.state,preferences:keep('preferences'),titleRules:keep('titleRules'),customCategories:keep('customCategories'),categoryOverrides:keep('categoryOverrides'),fundMatches:keep('fundMatches'),receipts:keep('receipts'),recurringDismissed:keep('recurringDismissed')},typeof input.action==='string'?input.action.slice(0,100):'Ledger updated');
+   return this.commit(client,owner,before,{...input.state,preferences:keep('preferences'),titleRules:keep('titleRules'),customCategories:keep('customCategories'),categoryOverrides:keep('categoryOverrides'),fundMatches:keep('fundMatches'),receipts:keep('receipts'),recurringDismissed:keep('recurringDismissed'),tagRules:keep('tagRules')},typeof input.action==='string'?input.action.slice(0,100):'Ledger updated');
   });
  }
  // Undo: put back the ledger as it was before a change (the latest, or an earlier one together with everything after

@@ -1,5 +1,7 @@
 // Tags: your own labels on transactions (a trip, a project, “reimbursable”), any number per transaction.
 // A tag is up to 40 characters with no commas; tags match whatever their case, and the first spelling used is kept.
+import {transactionLabel,sameTitle} from './transaction-labels.js';
+import {titleRuleMatches} from './preferences.js';
 export const maxTags=20,maxTagLength=40;
 export const cleanTag=s=>String(s??'').replace(/^[\s#]+/,'').replace(/[,\s]+/g,' ').trim().slice(0,maxTagLength).trim();
 export const tagKey=s=>cleanTag(s).toLowerCase();
@@ -21,3 +23,15 @@ export function renameTag(transactions,from,to){const name=cleanTag(to),key=tagK
  for(const t of transactions){const i=(t.tags||[]).findIndex(g=>g.toLowerCase()===key);if(i<0)continue;const list=[...t.tags];list[i]=existing||name;t.tags=list.filter((g,j)=>list.findIndex(x=>x.toLowerCase()===g.toLowerCase())===j);n++;}
  return n;}
 export function deleteTag(transactions,tag){let n=0;for(const t of transactions)if(hasTag(t,tag)){removeTag(t,tag);n++;}return n;}
+// Tag rules: a match on the narration (contains, or exactly) or on the title adds a tag, on import and to phone entries.
+export const tagRuleModes={contains:'Narration contains',exact:'Narration is exactly',title:'Title is'};
+export function tagRuleMatches(rule,t,titleRules=[]){
+ if(!String(rule?.keyword||'').trim())return false;
+ return rule.mode==='title'?sameTitle(rule.keyword,transactionLabel(t,titleRules).title):titleRuleMatches(rule,t);
+}
+// Every matching rule adds its tag. Returns how many transactions gained a tag.
+export function applyTagRules(rows,rules=[],titleRules=[]){
+ let n=0;
+ for(const t of rows){const add=rules.filter(r=>tagRuleMatches(r,t,titleRules)&&!hasTag(t,r.tag)).map(r=>r.tag);if(add.length){addTags(t,add);n++;}}
+ return n;
+}

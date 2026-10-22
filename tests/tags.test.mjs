@@ -54,3 +54,22 @@ test('the server keeps valid tags and refuses malformed ones',()=>{
  assert.equal('tags' in validateLedger(ledger([])).transactions[0],false);assert.equal('tags' in validateLedger(ledger()).transactions[0],false);
  for(const tags of [['a,b'],['Work','WORK'],[''],['x'.repeat(41)],'Work',[{}],Array.from({length:21},(_,i)=>'t'+i)])assert.throws(()=>validateLedger(ledger(tags)),/tags/,JSON.stringify(tags));
 });
+
+import {tagRuleMatches,applyTagRules} from '../packages/domain/tags.js';
+import {newFromPhone} from '../packages/domain/capture.js';
+test('tag rules match the narration or the title, and add their tag once',()=>{
+ const irctc={description:'POS IRCTC WEB BOOKING 12345',amount:-150000,type:'Expense'},swiggy={description:'UPI-SWIGGY LIMITED-swiggy@axisbank-628512345671',amount:-50000,type:'Expense'};
+ assert.ok(tagRuleMatches({mode:'contains',keyword:'irctc',tag:'Travel'},irctc));assert.equal(tagRuleMatches({mode:'exact',keyword:'irctc',tag:'Travel'},irctc),false);
+ assert.ok(tagRuleMatches({mode:'title',keyword:'swiggy',tag:'Food'},swiggy));assert.equal(tagRuleMatches({mode:'title',keyword:'swig',tag:'Food'},swiggy),false);
+ const rules=[{mode:'contains',keyword:'irctc',tag:'Travel'},{mode:'contains',keyword:'booking',tag:'Goa trip'},{mode:'title',keyword:'Swiggy',tag:'Food'}],rows=[{...irctc},{...swiggy},{...irctc,tags:['travel']}];
+ assert.equal(applyTagRules(rows,rules),3);assert.deepEqual(rows.map(t=>t.tags),[['Travel','Goa trip'],['Food'],['travel','Goa trip']]);
+ assert.equal(applyTagRules(rows,rules),0,'nothing to add the second time');
+ const state={accounts:[{id:'a',name:'HDFC',type:'Savings'}],rules:[],transactions:[],tagRules:[{id:'r',mode:'contains',keyword:'irctc',tag:'Travel'}]};
+ assert.deepEqual(newFromPhone(state,{accountId:'a',amount:-150000,date:'2026-10-20',payee:'IRCTC',channel:'UPI',source:'message'}).tags,['Travel'],'phone entries too');
+});
+test('the server keeps tag rules and refuses malformed or repeated ones',()=>{
+ const rule={id:'r1',mode:'contains',keyword:' irctc  web ',tag:'Travel'};
+ assert.deepEqual(validateLedger({...ledger([]),tagRules:[rule]}).tagRules,[{id:'r1',mode:'contains',keyword:'irctc web',tag:'Travel'}]);
+ assert.deepEqual(validateLedger(ledger([])).tagRules,[]);
+ for(const tagRules of [[{...rule,mode:'regex'}],[{...rule,tag:'a,b'}],[{...rule,keyword:' '}],[rule,{...rule,id:'r2',tag:'travel'}],'x'])assert.throws(()=>validateLedger({...ledger([]),tagRules}),/tag rule/i,JSON.stringify(tagRules));
+});

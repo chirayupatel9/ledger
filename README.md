@@ -163,6 +163,7 @@ A transaction can carry any number of tags (up to 20, each up to 40 characters, 
 - **Tags** on Transactions lists every tag with its count and spend, and renames (renaming onto an existing tag merges them), deletes or shows each one.
 - **Spending by tag** on Reports totals each tag for the chosen period and accounts (spent after refunds, and money received). A transaction with several tags counts under each.
 - CSV exports have a `tags` column. Tags are kept when a statement row replaces a transaction added from your phone.
+- **Tag rules** (in the Tags window): *narration contains*, *narration is exactly* or *title is* some text → a tag. They tag statement imports and phone entries as they arrive, and a new rule can also tag the matching transactions you already have (the form shows how many). Renaming a tag renames it in its rules; deleting a tag removes its rules; removing a rule leaves the tags where they are.
 
 Tags are stored on each transaction (`tags` in the ledger, checked by `validTags` in `packages/domain/tags.js`). Run `tests/tags-browser.mjs` for the live checks.
 

@@ -4,6 +4,7 @@
 // name, note, tax tag and receipts. Nothing here touches the network; bill photos are read on the device.
 import {classify} from './core.js';
 import {applyLearned} from './learn.js';
+import {applyTagRules} from './tags.js';
 const DAY=86400000,toDay=d=>Date.parse(d+'T00:00:00Z')/DAY,gap=(a,b)=>Math.abs(toDay(a)-toDay(b));
 const istToday=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const months={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
@@ -86,7 +87,7 @@ export function newFromPhone(state,{accountId,amount,date,payee,ref,channel,sour
  const description=[source==='receipt'?'Bill':channel||'Payment',payee,ref].filter(Boolean).join(' / ').slice(0,4000);
  const row={id:crypto.randomUUID(),accountId,account:a.name,date,description,amount,...classify(description,amount,state.rules||[],{card:a.type==='Credit card'}),review:true,source,...(ref&&/^[A-Za-z0-9-]{1,40}$/.test(ref)?{ref}:{}),...(payee?{displayName:payee.slice(0,160)}:{})};
  // The category you use for this payee; it stays in Needs review until the statement row replaces it.
- const learned=applyLearned([row],state).rows[0];return {...learned,review:true};
+ const learned={...applyLearned([row],state).rows[0],review:true};applyTagRules([learned],state.tagRules||[],state.titleRules||[]);return learned;
 }
 // On a statement import: which incoming rows replace a transaction added from the phone (incoming id → phone id).
 export function phoneReplacements(existing,incoming){

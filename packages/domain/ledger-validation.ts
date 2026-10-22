@@ -4,7 +4,7 @@ import {taxTagIds} from './tax.js';
 import {normalizeTransfers} from './transfers.js';
 import {defaultPreferences,dashboardCards,reportCards} from './preferences.js';
 import {validTags} from './tags.js';
-export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;recurringDismissed:{key:string;payee:string;at:string}[];fundMatches:{scheme:string;code:number|null}[];receipts:any[]};
+export type LedgerState={schemaVersion:number;accounts:any[];transactions:any[];statements:any[];rules:any[];initialized:boolean;preferences:any;titleRules:any[];customCategories:any[];categoryOverrides:Record<string,any>;recurringDismissed:{key:string;payee:string;at:string}[];tagRules:{id:string;mode:string;keyword:string;tag:string}[];fundMatches:{scheme:string;code:number|null}[];receipts:any[]};
 export class InputError extends Error{status=400}
 const fail=(m:string):never=>{throw new InputError(m)};
 const string=(v:unknown,max:number)=>typeof v==='string'&&v.length<=max;
@@ -77,6 +77,15 @@ export function validateLedger(input:any):LedgerState{
   if(matches.has(key))fail('A title rule already uses that match. Edit the existing rule.');
   ruleIds.add(r.id);matches.add(key);return {id:r.id,mode:r.mode,keyword,title:r.title.trim()};
  });
+ // Tag rules: a match (narration contains or is exactly, or title is) adds one tag.
+ if(input.tagRules!==undefined&&(!Array.isArray(input.tagRules)||input.tagRules.length>200))fail('Up to 200 tag rules are supported.');
+ const tagRuleIds=new Set(),tagRuleKeys=new Set();
+ const tagRules=(input.tagRules||[]).map((r:any)=>{
+  if(!r||!id(r.id)||tagRuleIds.has(r.id)||!['contains','exact','title'].includes(r.mode)||!string(r.keyword,200)||!r.keyword.trim()||!validTags([r.tag]))fail('Invalid tag rule. Use a match and one tag of up to 40 characters, without commas.');
+  const keyword=r.keyword.trim().replace(/\s+/g,' '),key=[r.mode,keyword.toLowerCase(),r.tag.toLowerCase()].join(':');
+  if(tagRuleKeys.has(key))fail('That tag rule already exists.');
+  tagRuleIds.add(r.id);tagRuleKeys.add(key);return {id:r.id,mode:r.mode,keyword,tag:r.tag};
+ });
  // Bill photos kept for later, until a transaction for them turns up.
  if(input.receipts!==undefined&&(!Array.isArray(input.receipts)||input.receipts.length>200))fail('Up to 200 receipts can wait to be matched.');
  const receipts=(input.receipts||[]).map((r:any)=>{if(!r||!id(r.id)||!id(r.fileId)||!string(r.name,255)||!string(r.addedAt,40)||(r.merchant!==undefined&&!string(r.merchant,120))||(r.total!==undefined&&!(Number.isSafeInteger(r.total)&&r.total>0&&r.total<=1e14))||!day(r.date))fail('Invalid receipt.');return {id:r.id,fileId:r.fileId,name:r.name,addedAt:r.addedAt,...(r.merchant?{merchant:r.merchant}:{}),...(r.total?{total:r.total}:{}),...(r.date?{date:r.date}:{})};});
@@ -92,5 +101,5 @@ export function validateLedger(input:any):LedgerState{
  // Recurring payments you marked as not recurring, by their series key.
  if(input.recurringDismissed!==undefined&&(!Array.isArray(input.recurringDismissed)||input.recurringDismissed.length>500))fail('Up to 500 payments can be marked as not recurring.');
  const keys=new Set<string>(),recurringDismissed=(input.recurringDismissed||[]).map((d:any)=>{if(!d||!string(d.key,400)||!d.key||keys.has(d.key)||!string(d.payee,160)||!string(d.at,40)||!Number.isFinite(Date.parse(d.at)))fail('Invalid recurring payment mark.');keys.add(d.key);return {key:d.key,payee:d.payee,at:d.at};});
- return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches,receipts,recurringDismissed};
+ return {schemaVersion:2,accounts,transactions,statements,rules,initialized:!!input.initialized,preferences,titleRules,customCategories,categoryOverrides,fundMatches,receipts,recurringDismissed,tagRules};
 }
