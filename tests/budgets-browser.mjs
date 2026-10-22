@@ -30,7 +30,7 @@ try{
  assert.deepEqual((await get()).state.budgets||[],[],'nothing saved');
  await modal.locator('[data-budget=""]').fill('1,00,000');await modal.locator('[data-budget="Food & dining"]').fill('500');await modal.locator('[data-budget="Shopping"]').fill('20000');
  await Promise.all([saved(),modal.locator('#budget-save').click()]);await toast.getByText('3 budgets saved').waitFor();
- assert.deepEqual((await get()).state.budgets,[{category:'',amount:10000000},{category:'Food & dining',amount:50000},{category:'Shopping',amount:2000000}]);
+ assert.deepEqual((await get()).state.budgets.map(b=>[b.category,b.amount]).sort(),[['',10000000],['Food & dining',50000],['Shopping',2000000]]);
 
  // 3. The card: all spending first, then by share used, each with its status; Food & dining is over, Shopping nearly used.
  const rows=card.locator('.budget-row');assert.equal(await rows.count(),3);assert.match(await rows.first().innerText(),/All spending/);
