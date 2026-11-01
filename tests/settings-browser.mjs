@@ -28,12 +28,12 @@ try{
  await form.locator('[name="theme"]').selectOption('dark');await form.locator('[name="fontSize"]').selectOption('20');await form.locator('[name="fontFamily"]').selectOption('serif');await form.locator('[name="density"]').selectOption('compact');
  for(const name of ['showChart','showBalances','showLabelSource'])await form.locator(`[name="${name}"]`).uncheck();await form.locator('[name="expandNarration"]').check();
  const root=()=>page.evaluate(()=>({font:getComputedStyle(document.documentElement).fontSize,theme:document.documentElement.dataset.theme,family:document.documentElement.dataset.font,density:document.documentElement.dataset.density,bg:getComputedStyle(document.body).backgroundColor}));
- assert.deepEqual(await root(),{font:'20px',theme:'dark',family:'serif',density:'compact',bg:'rgb(15, 23, 20)'},'live preview before saving');
+ assert.deepEqual(await root(),{font:'20px',theme:'dark',family:'serif',density:'compact',bg:'rgb(6, 17, 31)'},'live preview before saving');
  page.once('dialog',d=>d.dismiss());await page.locator('nav [data-page="overview"]').click();assert.equal(new URL(page.url()).pathname,'/settings','unsaved settings keep you on the page');
  mkdirSync('playwright-results',{recursive:true});await page.screenshot({path:'playwright-results/settings-dark.png',fullPage:true});
  await form.getByRole('button',{name:'Save settings'}).click();await page.locator('#toast').getByText('Display settings saved').waitFor();
  assert.deepEqual((await state()).state.preferences,{theme:'dark',fontSize:20,fontFamily:'serif',density:'compact',showChart:false,showCategories:true,showRecent:true,showBalances:false,showLabelSource:false,expandNarration:true,showInsights:true,showNetWorth:true,showUpcoming:true,showBudgets:true,showCategoryTrend:true,showSavingsTrend:true,showTax:true,dashboardOrder:[],reportsOrder:[],reportsHidden:[]});
- await page.reload();await form.waitFor();assert.deepEqual(await root(),{font:'20px',theme:'dark',family:'serif',density:'compact',bg:'rgb(15, 23, 20)'},'saved preferences apply after reload');
+ await page.reload();await form.waitFor();assert.deepEqual(await root(),{font:'20px',theme:'dark',family:'serif',density:'compact',bg:'rgb(6, 17, 31)'},'saved preferences apply after reload');
 
  // 2. An older tab that does not know about preferences cannot erase them.
  data=await state();delete data.state.preferences;delete data.state.titleRules;assert.equal((await put(data)).status(),200);assert.equal((await state()).state.preferences.fontSize,20);
