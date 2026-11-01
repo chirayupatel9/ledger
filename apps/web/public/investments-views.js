@@ -68,7 +68,7 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
  }
  // The same chart as Reports: an amount scale, the month's total on hover or tap, and a click opens that month's investments.
  function monthsCard(s){
-  const months=s.months.map(m=>m.month),chart=stackedBars({labels:months.map(monthName),titles:months.map(m=>`${monthName(m)} ${m.slice(0,4)}`),series:[{key:'Investments',name:'Invested',color:'#2c6554',values:s.months.map(m=>m.amount)}],format:(v,compact)=>money(v,compact),label:'Amount invested in each of the last 12 months',drill:i=>({month:months[i],category:'Investments'})});
+  const months=s.months.map(m=>m.month),chart=stackedBars({labels:months.map(monthName),titles:months.map(m=>`${monthName(m)} ${m.slice(0,4)}`),series:[{key:'Investments',name:'Invested',color:'#3b7fc4',values:s.months.map(m=>m.amount)}],format:(v,compact)=>money(v,compact),label:'Amount invested in each of the last 12 months',drill:i=>({month:months[i],category:'Investments'})});
   return `<div class="card months-card"><div class="table-toolbar"><div><h2>Invested each month</h2><p class="sub">Last 12 months · fund purchases and investment debits from your bank, counted once</p></div></div><div class="months-chart">${chart||'<p class="sub">Nothing invested in the last 12 months.</p>'}</div></div>`;
  }
 
@@ -113,12 +113,12 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
  function bind(){document.querySelectorAll('[data-fund-match]').forEach(el=>el.onclick=()=>choose(el.dataset.fundMatch));}
  // Where the money is invested: each fund's share (today's value where known), SIP vs lump sum, and invested vs worth.
  function allocationCard(s){
-  const colours=['#2c6554','#7c9cbf','#c5a15a','#b07a9e','#d88a5a','#6f9a4c','#4f8a8b','#8a948e'],funds=s.funds.map(f=>({f,value:f.worth??f.net})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value);if(!funds.length)return '';
+  const colours=['#3b7fc4','#fd6e88','#c5a15a','#8b74c9','#d88a5a','#4fb3a9','#7fb8de','#8a96a8'],funds=s.funds.map(f=>({f,value:f.worth??f.net})).filter(x=>x.value>0).sort((a,b)=>b.value-a.value);if(!funds.length)return '';
   const total=funds.reduce((v,x)=>v+x.value,0),valued=funds.some(x=>x.f.worth!==null),sip=s.funds.reduce((v,f)=>v+f.sipRows.reduce((w,t)=>w+t.amount,0),0),paid=s.funds.reduce((v,f)=>v+f.paid,0);
   return `<div class="card allocation-card"><div class="table-toolbar"><div><h2>Where your money is invested</h2><p class="sub">${valued?'By value (today’s NAV where matched, else the latest in your reports)':'By amount invested'}</p></div></div><div class="insight-body">
    ${donut(funds.map((x,i)=>({label:x.f.scheme,value:x.value,color:colours[i%colours.length]})),{format:v=>money(v),label:'Investments by fund',centre:money(total,true)})}
-   <h3 class="insight-sub">SIP or lump sum</h3>${barList([{label:'Through SIPs',value:sip,color:'#2c6554'},{label:'Lump sum',value:Math.max(0,paid-sip),color:'#c5a15a'}].filter(x=>x.value),{format:v=>money(v)})}
-   ${valued?`<h3 class="insight-sub">Invested and worth now</h3>${barList(funds.filter(x=>x.f.worth!==null).map(x=>({label:x.f.scheme,value:x.f.worth,sub:`invested ${money(x.f.paid-x.f.redeemed)} · ${x.f.gain>=0?'gain':'loss'} ${money(Math.abs(x.f.gain))}`,color:x.f.gain>=0?'#2c6554':'#d88a5a'})),{format:v=>money(v)})}`:''}</div></div>`;
+   <h3 class="insight-sub">SIP or lump sum</h3>${barList([{label:'Through SIPs',value:sip,color:'#3b7fc4'},{label:'Lump sum',value:Math.max(0,paid-sip),color:'#c5a15a'}].filter(x=>x.value),{format:v=>money(v)})}
+   ${valued?`<h3 class="insight-sub">Invested and worth now</h3>${barList(funds.filter(x=>x.f.worth!==null).map(x=>({label:x.f.scheme,value:x.f.worth,sub:`invested ${money(x.f.paid-x.f.redeemed)} · ${x.f.gain>=0?'gain':'loss'} ${money(Math.abs(x.f.gain))}`,color:x.f.gain>=0?'#3b7fc4':'#d88a5a'})),{format:v=>money(v)})}`:''}</div></div>`;
  }
  // For the dashboard's net worth: the same summary, with today's NAVs when they have been fetched.
  function summary(){const s=summarizeInvestments(getState(),{today:istDate(),navs:live()});if(s.funds.length)loadNavs();return s;}

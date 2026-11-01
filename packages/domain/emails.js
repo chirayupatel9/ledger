@@ -1,7 +1,7 @@
 // Ledger's emails: one branded layout (HTML with a plain-text alternative) shared by every message. Table-based with
 // inline styles so it renders the same in Gmail, Outlook and phone mail apps. Everything dynamic is escaped.
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const color={brand:'#173b32',accent:'#c5df9d',button:'#2c6554',text:'#293e32',muted:'#6f7d6c',line:'#e3e8df',page:'#f3f5ee',soft:'#f4f7ee'};
+const color={brand:'#072d59',accent:'#fd6e88',button:'#072d59',text:'#0e2746',muted:'#5f7189',line:'#d9e9f2',page:'#eef8fd',soft:'#dbf2fc'};
 const font="'Manrope','Segoe UI',Helvetica,Arial,sans-serif";
 // A paragraph is a string or a list of strings and {b:'bold text'} pieces.
 const pieces=p=>Array.isArray(p)?p:[p];
