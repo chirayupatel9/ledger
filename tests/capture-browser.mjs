@@ -129,7 +129,7 @@ try{
  assert.match(shared||'',/^[0-9a-f-]{36}$/,'the service worker kept the shared message');
  await page.goto(base+'/?shared='+shared);await modal.getByText('Same UPI reference').waitFor();await page.keyboard.press('Escape');
  await page.goto(base+'/settings');await page.locator('#pwa-card').getByText('Ledger on your phone').waitFor();
- assert.equal(await page.evaluate(()=>document.querySelector('meta[name="theme-color"]')?.content),'#173b32');
+ assert.equal(await page.evaluate(()=>document.querySelector('meta[name="theme-color"]')?.content),'#072d59');
  assert.deepEqual(problems,[]);
  console.log('PASS: phone bar and More, UPI message matched by reference and added as new, bill photo read on the device and attached, PDF invoice read and kept as a PDF receipt with a preview, scanned PDF read with OCR, receipt viewed and removed (file deleted), bill kept for later with overview strip, statement row replaces the phone payment, manifest, icons, service worker share target and fallback, install card, no CSP violations.');
 }finally{await browser.close();if(created)await remove().catch(()=>{});}

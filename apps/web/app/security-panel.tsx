@@ -10,7 +10,7 @@ async function call(path:string,body:Record<string,unknown>){
 }
 function QR({value}:{value:string}){
  const {data}=encode(value,{ecc:'M',border:2}),size=data.length;
- return <svg className="qr" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="QR code for your authenticator app" shapeRendering="crispEdges"><rect width={size} height={size} fill="#fff"/>{data.flatMap((row,y)=>row.map((on,x)=>on?<rect key={x+'-'+y} x={x} y={y} width="1" height="1" fill="#173b32"/>:null))}</svg>;
+ return <svg className="qr" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="QR code for your authenticator app" shapeRendering="crispEdges"><rect width={size} height={size} fill="#fff"/>{data.flatMap((row,y)=>row.map((on,x)=>on?<rect key={x+'-'+y} x={x} y={y} width="1" height="1" fill="#072d59"/>:null))}</svg>;
 }
 function Codes({codes}:{codes:string[]}){
  const download=()=>{const url=URL.createObjectURL(new Blob(['Ledger backup codes. Each code works once.\n\n'+codes.join('\n')+'\n'],{type:'text/plain'})),a=document.createElement('a');a.href=url;a.download='ledger-backup-codes.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};

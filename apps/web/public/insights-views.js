@@ -5,11 +5,11 @@ import {financialYear} from './tax.js';
 import {fmtDate,istDate} from './format.js';
 // The dashboard's insight cards and the extra Reports charts (numbers from insights.js, drawing from charts.js).
 // They follow the account filter; time charts cover the selected month or financial year, else the last 12 months.
-const palette=['#2c6554','#7c9cbf','#c5a15a','#b07a9e','#d88a5a','#6f9a4c','#8a948e','#4f8a8b'];
+const palette=['#3b7fc4','#fd6e88','#c5a15a','#8b74c9','#d88a5a','#4fb3a9','#8a96a8','#7fb8de'];
 export function createInsightViews({getState,rows,accountFilter,period,money,esc,icon,investments=()=>null}){
  const today=()=>istDate(),fmt=(v,compact)=>money(v,compact),pct=v=>`${Math.round(v)}%`;
  const monthName=m=>new Date(m+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'short'}),monthLong=m=>new Date(m+'-15T00:00:00Z').toLocaleDateString('en-IN',{timeZone:'UTC',month:'long',year:'numeric'});
- const label=key=>key==='Other'?'Other':categoryLookup(getState())(key).label,colour=(key,i)=>key==='Other'?'#b9c0b8':categoryLookup(getState())(key).color||palette[i%palette.length];
+ const label=key=>key==='Other'?'Other':categoryLookup(getState())(key).label,colour=(key,i)=>key==='Other'?'#b8c3cf':categoryLookup(getState())(key).color||palette[i%palette.length];
  const scoped=()=>{const s=getState(),a=accountFilter();return a==='all'?s:{...s,accounts:s.accounts.filter(x=>x.id===a),transactions:s.transactions.filter(t=>t.accountId===a),statements:s.statements.filter(x=>x.accountId===a)};};
  function span(n=12){
   const p=period(),tx=scoped().transactions;
@@ -37,7 +37,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
  function netWorthCard(){
   const months=span(),inv=accountFilter()==='all'?investments():null,w=netWorth(scoped(),{months,investments:inv}),p=w.points,last=p.at(-1),first=p.find(x=>x.total!==null);
   if(!last||last.total===null)return card('net-worth-card','Net worth','',empty('Add the opening or closing balance of a statement (or import statements with running balances) to see what you own minus what you owe.'));
-  const series=[{name:'Net worth',color:'#2c6554',bold:true,values:p.map(x=>x.total)},{name:'Bank',color:'#7c9cbf',values:p.map(x=>x.banks)},{name:'Investments',color:'#b07a9e',values:p.map(x=>x.investments||null)},{name:'Cards owed',color:'#d88a5a',values:p.map(x=>x.cards)}].filter(s=>s.values.some(v=>v!==null&&v!==0));
+  const series=[{name:'Net worth',color:'#3b7fc4',bold:true,values:p.map(x=>x.total)},{name:'Bank',color:'#fd6e88',values:p.map(x=>x.banks)},{name:'Investments',color:'#8b74c9',values:p.map(x=>x.investments||null)},{name:'Cards owed',color:'#d88a5a',values:p.map(x=>x.cards)}].filter(s=>s.values.some(v=>v!==null&&v!==0));
   const change=first&&first!==last?last.total-first.total:null;
   return card('net-worth-card','Net worth',`<b class="insight-figure">${esc(money(last.total))}</b>${change!==null?` <span class="${change>=0?'up':'down'}">${change>=0?'+':'−'}${esc(money(Math.abs(change)))} since ${esc(monthName(first.month))}</span>`:''}`,
    lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Net worth by month',legend:true})+`<p class="sub insight-note">What you own minus what you owe, at each month end. Investments count at the amount invested${w.latestIsValue?', and at today’s value for the latest month':''}.${w.unknown.length?` Not included (no known balance): ${esc(w.unknown.join(', '))}.`:''}</p>`);
@@ -59,7 +59,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
   const months=span(),s=savingsTrend(scoped().transactions,{months}),rates=s.map(x=>x.rate);
   if(!rates.some(v=>v!==null))return card('savings-trend-card','Savings rate','',empty('Your savings rate appears once income is recorded.'));
   const known=rates.filter(v=>v!==null),avg=known.reduce((v,x)=>v+x,0)/known.length;
-  return card('savings-trend-card','Savings rate',`Share of income kept each month · average <b>${pct(avg)}</b>`,lineChart({labels:months.map(monthName),titles:months.map(monthLong),series:[{name:'Savings rate',color:'#2c6554',bold:true,values:rates}],format:v=>pct(v),label:'Savings rate by month',drill:i=>({month:months[i]})}));
+  return card('savings-trend-card','Savings rate',`Share of income kept each month · average <b>${pct(avg)}</b>`,lineChart({labels:months.map(monthName),titles:months.map(monthLong),series:[{name:'Savings rate',color:'#3b7fc4',bold:true,values:rates}],format:v=>pct(v),label:'Savings rate by month',drill:i=>({month:months[i]})}));
  }
  // The chips go under the totals; the cards after the existing charts.
  function dashboard(prefs){
@@ -71,7 +71,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
  // Reports
  function payeesCard(){const s=scoped(),p=topPayees(rows(),{titleRules:s.titleRules||[],limit:10});
   return card('payees-card','Top payees',p.payees?`Where the money went · ${p.payees} payees`:'',p.items.length?barList(p.items.map(i=>({label:i.category?`${label(i.category)} · ${i.name}`:i.name,value:i.total,sub:`${i.count} payment${i.count===1?'':'s'} · ${i.share}%`,drill:{search:i.name,...(i.category?{category:i.category}:{})}})),{format:fmt}):empty('No spending in this period.'));}
- function methodsCard(){const s=scoped(),months=span(),m=paymentMethods(s.transactions,{months,accounts:s.accounts}),colours={UPI:'#2c6554',Card:'#7c9cbf','Bank transfer':'#c5a15a','Auto-debit':'#b07a9e',Cash:'#d88a5a',Cheque:'#6f9a4c',Other:'#b9c0b8'};
+ function methodsCard(){const s=scoped(),months=span(),m=paymentMethods(s.transactions,{months,accounts:s.accounts}),colours={UPI:'#3b7fc4',Card:'#fd6e88','Bank transfer':'#c5a15a','Auto-debit':'#8b74c9',Cash:'#d88a5a',Cheque:'#4fb3a9',Other:'#b8c3cf'};
   if(!m.series.length)return card('methods-card','How you pay','',empty('No spending in these months yet.'));
   const series=m.series.map(x=>({name:x.key,color:colours[x.key],values:x.values}));
   return card('methods-card','How you pay','UPI, cards, bank transfers, automatic debits and cash, each month',stackedBars({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Spending by payment method',legend:true,drill:i=>({month:months[i],type:'Expense'})}));}
@@ -80,7 +80,7 @@ export function createInsightViews({getState,rows,accountFilter,period,money,esc
   const series=b.accounts.map((a,i)=>({name:a.name+(a.card?' (owed)':''),color:palette[i%palette.length],values:a.card?a.points.map(v=>v===null?null:-v):a.points}));
   return card('balances-card','Account balances','At each month end',lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Account balances by month',legend:true})+(b.unknown.length?`<p class="sub insight-note">No known balance yet: ${esc(b.unknown.join(', '))}.</p>`:''));}
  function cardsCard(){const months=span(),cards=balanceHistory(scoped(),{months}).accounts.filter(a=>a.card);if(!cards.length)return '';
-  const series=cards.map((a,i)=>({name:a.name,color:['#d88a5a','#b07a9e','#c5a15a'][i%3],values:a.points.map(v=>v===null?null:Math.max(0,-v))}));
+  const series=cards.map((a,i)=>({name:a.name,color:['#d88a5a','#8b74c9','#c5a15a'][i%3],values:a.points.map(v=>v===null?null:Math.max(0,-v))}));
   return card('cards-card','Credit cards','Amount owed at each month end',`<div class="insight-figures">${cards.map(a=>`<span>${esc(a.name)} <b>${esc(money(Math.max(0,-a.latest)))}</b> ${a.latest>0?'<small class="sub">in credit</small>':'<small class="sub">owed</small>'}</span>`).join('')}</div>`+lineChart({labels:months.map(monthName),titles:months.map(monthLong),series,format:fmt,label:'Credit card balances by month',legend:true}));}
  function calendarCard(){const tx=scoped().transactions,end=tx.reduce((m,t)=>t.date<=today()&&t.date>m?t.date:m,'')||today(),c=spendingCalendar(tx,{end,weeks:26});
   if(!c.max)return card('calendar-card','Spending calendar','',empty('No spending in the last six months.'));

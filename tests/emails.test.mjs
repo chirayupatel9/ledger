@@ -10,7 +10,7 @@ test('emails carry a branded HTML version and a plain-text one with the link',()
  const url=origin+'/api/auth/verify-email?token=abc&callbackURL=%2Flogin';
  const m=verificationEmail({url,origin});
  assert.equal(m.subject,'Verify your Ledger email');
- assert.match(m.html,/^<!doctype html>/);assert.match(m.html,/ledger<span style="color:#c5df9d">\.<\/span>/);
+ assert.match(m.html,/^<!doctype html>/);assert.match(m.html,/ledger<span style="color:#fd6e88">\.<\/span>/);
  assert.ok(m.html.includes(`href="${url.replace(/&/g,'&amp;')}"`),'the button link is escaped for HTML');
  assert.equal(m.text.match(/https:\/\/\S+/)[0],url,'the first link in the text version is the action link');
  assert.match(m.text,/^Verify your email address$/m);assert.match(m.text,/works for 1 hour/);

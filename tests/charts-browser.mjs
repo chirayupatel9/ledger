@@ -24,7 +24,7 @@ try{
  const dashboard=async()=>{await page.goto(base+'/');await page.locator('#net-worth-card').waitFor();};
 
  // 1. Money in, money out: hovering a bar shows the month's totals; clicking the Expenses bar opens that month's expenses.
- await dashboard();const expenses=page.locator('.chart .kit-seg[fill="#c7d8b5"]').last();
+ await dashboard();const expenses=page.locator('.chart .kit-seg[fill="#fd6e88"]').last();
  await expenses.hover();await tip.waitFor();const text=await tip.innerText();
  assert.match(text,new RegExp(long(ledgerMonths.at(-1))));assert.match(text,/Income[\s\S]*Expenses[\s\S]*Net/);assert.match(text,/Click to see/);
  const month=(await drillOf(expenses)).month;await expenses.click();let list=await onTransactions(page);
@@ -66,7 +66,7 @@ try{
  // 6. Phone: a tap pins the tooltip with a button; tapping elsewhere closes it; the button opens the transactions.
  const phone=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,storageState:await context.storageState()}),p=await phone.newPage();
  p.on('pageerror',e=>problems.push('phone pageerror: '+e.message));
- await p.goto(base+'/');const bar=p.locator('.chart .kit-seg[fill="#527d67"]').last();await bar.tap();const ptip=p.locator('.kit-tip.pinned');await ptip.waitFor();
+ await p.goto(base+'/');const bar=p.locator('.chart .kit-seg[fill="#3b7fc4"]').last();await bar.tap();const ptip=p.locator('.kit-tip.pinned');await ptip.waitFor();
  assert.match(await ptip.innerText(),/Income/);await p.locator('.metrics').first().tap();await p.locator('.kit-tip').waitFor({state:'hidden'});
  await bar.tap();await ptip.locator('.kit-tip-go').tap();list=await onTransactions(p);assert.equal(await p.locator('#type-filter').inputValue(),'Income');assert.ok(list.every(t=>t.type==='Income'));
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'nothing is wider than the phone screen');
