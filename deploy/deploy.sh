@@ -2,7 +2,7 @@
 # Deploy Ledger from the main checkout: one deploy at a time (the production lock), a database backup first, a health
 # check after, and the previous images back if the new ones are not healthy.
 #   deploy/deploy.sh             deploy what the main checkout has now (by hand)
-#   deploy/deploy.sh --ci <sha>  deploy a commit on origin/main (the GitHub runner, after CI passed)
+#   deploy/deploy.sh --ci <sha>  deploy a commit on origin/main (deploy/pull-deploy.mjs, once CI passed for it)
 # The commit production runs is kept in ~/.local/state/ledger-deploy/deployed, so a commit already deployed is skipped.
 set -uo pipefail
 repo=${LEDGER_DIR:-/home/chirayu/code/ledger-selfhost}
@@ -24,7 +24,7 @@ deployed=$(cat "$state/deployed" 2>/dev/null || true)
 
 if [ "$mode" = ci ]; then
  [ "$(git branch --show-current)" = main ] || fail "The main checkout is not on main; not deploying $target." alert
- [ -z "$(git status --porcelain --untracked-files=no)" ] || fail "The main checkout has uncommitted changes (a session is working there); not deploying $target. Re-run this job when it is clean." alert
+ [ -z "$(git status --porcelain --untracked-files=no)" ] || fail "The main checkout has uncommitted changes (a session is working there); not deploying $target. Once it is clean: node deploy/pull-deploy.mjs --retry" alert
  git fetch -q origin main || fail "Could not fetch origin/main." alert
  git merge-base --is-ancestor "$target" origin/main || fail "$target is not on origin/main; not deploying."
  head=$(git rev-parse HEAD)
