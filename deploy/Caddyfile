@@ -16,7 +16,7 @@
   Referrer-Policy no-referrer
   X-Frame-Options DENY
   Permissions-Policy "camera=(self), microphone=(), geolocation=()"
-  Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data: blob:; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'"
+  # Content-Security-Policy is set per-request (with a script nonce) by the Next app; see apps/web/middleware.ts.
  }
  handle /api/* {
   reverse_proxy api:3001 {

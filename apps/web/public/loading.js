@@ -1,7 +1,8 @@
 // The loading screen shown while Ledger opens: the server-rendered first paint, session checks and retries. It carries
 // its own styles so it looks right before the app's stylesheet arrives. If loading drags on, a reload link appears.
 // On first paint it applies the theme this device last used, so a dark-theme ledger does not flash light.
-const theme=`<script>try{var t=localStorage.getItem('ledger.theme');if((t==='dark'||t==='light')&&!document.documentElement.dataset.theme)document.documentElement.dataset.theme=t}catch(e){}</script>`;
+// The theme bootstrap runs before React hydrates; it carries the page nonce so it is allowed under the strict CSP.
+const themeScript=nonce=>`<script${nonce?` nonce="${nonce}"`:''}>try{var t=localStorage.getItem('ledger.theme');if((t==='dark'||t==='light')&&!document.documentElement.dataset.theme)document.documentElement.dataset.theme=t}catch(e){}</script>`;
 const css=`.ls{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#eef8fd;color:#0e2746;font-family:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;text-align:center}
 .ls-brand{display:flex;align-items:flex-end;gap:12px}
 .ls-mark{display:flex;align-items:flex-end;gap:4px;height:38px}
@@ -20,6 +21,6 @@ const css=`.ls{position:fixed;inset:0;z-index:50;display:flex;flex-direction:col
 @keyframes ls-show{to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.ls-mark i{animation:ls-pulse 2.4s ease-in-out infinite}@keyframes ls-pulse{50%{opacity:.45}}}`;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function loadingHTML(message='Opening your ledger…'){
- return `<div class="ls" role="status" aria-live="polite">${theme}<style>${css}</style><div class="ls-brand" aria-hidden="true"><div class="ls-mark"><i></i><i></i><i></i></div><div class="ls-word">ledger<span>.</span></div></div><p class="ls-msg">${esc(message)}</p><p class="ls-slow">This is taking longer than usual. Check your connection, or <a href="">reload the page</a>.</p></div>`;
+export function loadingHTML(message='Opening your ledger…',nonce=''){
+ return `<div class="ls" role="status" aria-live="polite">${themeScript(nonce)}<style>${css}</style><div class="ls-brand" aria-hidden="true"><div class="ls-mark"><i></i><i></i><i></i></div><div class="ls-word">ledger<span>.</span></div></div><p class="ls-msg">${esc(message)}</p><p class="ls-slow">This is taking longer than usual. Check your connection, or <a href="">reload the page</a>.</p></div>`;
 }
