@@ -1,8 +1,12 @@
 name: Ledger checks
+# The repository is private, so GitHub-hosted minutes are metered. Changes that only touch docs, screenshots or
+# Markdown run nothing (and deploy nothing: the next code change deploys them along with it).
 on:
   push:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +18,7 @@ jobs:
   # Unit tests, type checks and the production build.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,7 +35,7 @@ jobs:
   stack:
     needs: check
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     env:
       LEDGER_URL: http://localhost:5800
     steps:
@@ -70,16 +74,18 @@ jobs:
           echo '{"name":"ledger-ci-browser","private":true}' > package.json
           npm install --no-audit --no-fund playwright@1.64.1
           npx playwright install chromium-headless-shell
-      # Sign-in is limited to 10 a minute, so the suites run a minute apart.
+      # Sign-in is limited to 10 a minute per address and every suite signs in from this machine. Rather than wait a
+      # minute between suites, empty the throwaway database's rate-limit counters before each one (the app's limit
+      # itself is unchanged).
       - name: Browser suites
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/browser/node_modules/playwright/index.mjs
         run: |
           for t in transactions settings history budgets; do
+            sudo docker compose exec -T db psql -U ledger -d ledger -qc 'DELETE FROM "rateLimit"'
             echo "::group::$t"
             node tests/$t-browser.mjs
             echo "::endgroup::"
-            sleep 65
           done
       - name: Logs on failure
         if: failure()
