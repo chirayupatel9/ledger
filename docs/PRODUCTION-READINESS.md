@@ -63,4 +63,4 @@ Status: **Done** = implemented, deployed and tested in this pass; **Needs decisi
 2. **Email delivery**: done (Gmail SMTP, branded emails, owner login on Gmail).
 3. **Product direction**: personal books only, or business books too (GST, invoices, double-entry, Tally XML export).
 4. **Public signup**: requires normalising the ledger into tables, account deletion, a privacy notice and consent flow (DPDP Act duties apply to hosted services from 13 May 2027).
-5. **Old ChatGPT Sites copy** (`ledger-money-desk.chiiirayu.chatgpt.site`): take it down.
+5. **Old ChatGPT Sites copy**: an unmaintained hosted copy still exists — take it down (its address is kept out of this now-public repo on purpose; see the deployment owner's notes).

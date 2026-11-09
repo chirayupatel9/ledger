@@ -56,6 +56,9 @@ async function main(){
  // Run the deploy script of the commit being deployed, from a copy: deploy.sh fast-forwards this checkout, and bash
  // must not read a script that changes under it.
  if(git('fetch','-q','origin','main').status!==0){note('Could not fetch origin/main.');return 1;}
+ // Defence in depth: only ever run a commit that is actually on origin/main, before reading its deploy script.
+ // GitHub's answer is already filtered to push-to-main runs, and deploy.sh checks this too, but verify it here as well.
+ if(git('merge-base','--is-ancestor',candidate.sha,'origin/main').status!==0){note(`${candidate.sha} is not on origin/main; not deploying.`);return 1;}
  const script=git('show',`${candidate.sha}:deploy/deploy.sh`);
  if(script.status!==0){note(`${candidate.sha} has no deploy/deploy.sh.`);return 1;}
  write('attempted',candidate.sha);write('last-note','');

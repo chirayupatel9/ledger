@@ -14,7 +14,9 @@ cd "$repo" || exit 1
 mkdir -p "$state"
 log(){ printf '%s IST  %s\n' "$(TZ=Asia/Kolkata date '+%Y-%m-%d %H:%M:%S')" "$*"; }
 # A phone alert through ntfy when a deploy fails or rolls back (NTFY_URL in .env; never printed).
-notify(){ [ "${LEDGER_NOTIFY:-1}" = 1 ] || return 0;local url;url=$(grep -E '^NTFY_URL=' .env 2>/dev/null | head -1 | cut -d= -f2-);[ -n "$url" ] && curl -fsS -m 10 -H 'Title: Ledger deploy' -H 'Priority: high' -d "$1" "$url" >/dev/null 2>&1;return 0; }
+# The ntfy URL (its topic is the only secret) is passed to curl through a stdin config, not on the command line, so it
+# does not show up in `ps` to other local users.
+notify(){ [ "${LEDGER_NOTIFY:-1}" = 1 ] || return 0;local url;url=$(grep -E '^NTFY_URL=' .env 2>/dev/null | head -1 | cut -d= -f2-);[ -n "$url" ] && printf 'url = "%s"\n' "$url" | curl -fsS -m 10 -H 'Title: Ledger deploy' -H 'Priority: high' -d "$1" -K - >/dev/null 2>&1;return 0; }
 fail(){ log "$1";[ "${2:-}" = alert ] && notify "$1";exit 1; }
 
 exec 9>/tmp/ledger-production.lock
@@ -39,6 +41,8 @@ fi
 
 log "Deploying $target (production ran ${deployed:-an unrecorded version})"
 node deploy/backup.mjs || fail "The backup failed; not deploying $target." alert
+# A pre-deploy dump is written on every deploy; keep only the newest few so they do not fill the disk over time.
+ls -1t backups/ledger-*.dump 2>/dev/null | tail -n +11 | tr '\n' '\0' | xargs -0r rm -f
 # The images running now, to go back to.
 for image in ledger-api ledger-web; do sudo -n docker image inspect "$image:local" >/dev/null 2>&1 && sudo -n docker tag "$image:local" "$image:rollback"; done
 # LEDGER_TEST_UNHEALTHY=1 fails the first health check, to rehearse the rollback.
