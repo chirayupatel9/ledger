@@ -86,20 +86,24 @@ The mail outbox retries failed SMTP deliveries up to eight times with exponentia
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to main and every pull request (and by hand):
+`.github/workflows/ci.yml` runs on every push to main and every pull request (and by hand), except changes that only touch `docs/` or Markdown:
 
 - **check**: unit tests, type checks and the production build.
-- **stack**: builds the production Docker images and starts the local stack on the runner (`deploy/setup.mjs` with open sign-up and throwaway secrets, `docker compose --profile local`), then runs the integration test (real PostgreSQL and SMTP through Mailpit) and the transactions, settings, history and budgets browser suites against it (`LEDGER_URL=http://localhost:5800`). Every browser suite takes its address from `LEDGER_URL` (a unit test checks this), so CI never touches the live site.
+- **stack**: builds the production Docker images and starts the local stack on the runner (`deploy/setup.mjs` with open sign-up and throwaway secrets, `docker compose --profile local`), then runs the integration test (real PostgreSQL and SMTP through Mailpit) and the transactions, settings, history and budgets browser suites against it (`LEDGER_URL=http://localhost:5800`). Every browser suite takes its address from `LEDGER_URL` (a unit test checks this), so CI never touches the live site. Sign-in is limited to 10 a minute, so the throwaway database's `rateLimit` table is emptied before each suite.
 
-**Deployment (CD).** When both jobs pass on a push to main, the **deploy** job runs on a self-hosted runner on the production server (labels `self-hosted, ledger-deploy`; installed in `~/actions-runner-ledger` as a systemd service, running as the server user). It runs `deploy/deploy.sh --ci <commit>`, which:
+**Deployment (CD).** The workflow never deploys and nothing runs on the production server for GitHub: the repository is public, so a self-hosted runner would let any pull request's workflow run on the server. Instead the server deploys by itself. A systemd timer runs `deploy/pull-deploy.mjs` every 3 minutes. It asks GitHub's public API for the newest push to main whose **Ledger checks** run passed. If production does not run that commit (or a newer one that includes it), it runs that commit's own `deploy/deploy.sh --ci <commit>`. Each commit is tried once: after a failed deploy it waits for a new commit, or `node deploy/pull-deploy.mjs --retry` once the cause is fixed. `--dry-run` says what it would do. Logs: `journalctl -u ledger-deploy -f`.
+
+Install the timer once, on the server, from the main checkout, as the user that deploys (passwordless `sudo -n docker`): `deploy/install-pull-deploy.sh`. It writes `/etc/systemd/system/ledger-deploy.{service,timer}` for that user, checkout and Node, enables the timer and prints a dry run. The old Actions runner (`~/actions-runner-ledger`) is no longer used: stop and unregister it (`sudo ./svc.sh stop && sudo ./svc.sh uninstall && ./config.sh remove --token <token from Settings → Actions → Runners>`). Fork pull requests from outside contributors need approval before any workflow runs (Settings → Actions → General).
+
+`deploy/deploy.sh --ci <commit>`:
 
 1. waits for the production lock (`/tmp/ledger-production.lock`, shared with sessions and the live suites);
 2. refuses if the main checkout is not on main, has uncommitted changes, or has commits that are not on origin/main, and skips if production already runs that commit (or a newer one that includes it), recorded in `~/.local/state/ledger-deploy/deployed`;
 3. fast-forwards the main checkout, takes a database backup (`deploy/backup.mjs`) and keeps the running images as `ledger-api:rollback` and `ledger-web:rollback`;
 4. builds and starts the new version (`docker compose up -d --build`) and checks `/api/health` and the sign-in page;
-5. if that fails, puts the previous images back (`docker compose up -d --no-build`), checks again, sends a phone alert through ntfy (`NTFY_URL`), and fails the job. Database migrations are not undone; they are additive.
+5. if that fails, puts the previous images back (`docker compose up -d --no-build`), checks again, sends a phone alert through ntfy (`NTFY_URL`), and exits with an error. Database migrations are not undone; they are additive.
 
-Deploy by hand with `deploy/deploy.sh` from the main checkout (same steps, for what the checkout has now). `LEDGER_TEST_UNHEALTHY=1 LEDGER_NOTIFY=0 deploy/deploy.sh` rehearses a rollback without an alert. Deployments are listed under the repository's **production** environment on GitHub.
+Deploy by hand with `deploy/deploy.sh` from the main checkout (same steps, for what the checkout has now). `LEDGER_TEST_UNHEALTHY=1 LEDGER_NOTIFY=0 deploy/deploy.sh` rehearses a rollback without an alert.
 
 A local stack delivers email for reserved test domains (`.test`, `.example`…) to Mailpit; a public deployment records it but never sends it.
 
