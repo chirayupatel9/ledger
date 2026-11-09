@@ -7,6 +7,11 @@ import { twoFactorPlugin, googleTwoFactor } from './two-factor.js';
 import { verificationEmail, resetPasswordEmail } from '../../../packages/domain/emails.js';
 const notInvited=()=>new APIError('FORBIDDEN',{code:'NOT_INVITED',message:'Sign-up is by invitation. This email address has not been invited.'});
 const invited=async(email:string)=>!!(await pool.query('SELECT 1 FROM signup_invites WHERE email=$1',[email.trim().toLowerCase()])).rowCount;
+// Email+password sign-up must present the single-use token from the invitation link, not just an invited address, so
+// an invited email cannot be pre-registered by a guesser (an unused token that someone else already accepted is gone).
+// This also means an uninvited address and an invited one with no/wrong token get the same answer, so the endpoint no
+// longer reveals who is invited. Google sign-up is gated separately (databaseHooks) and needs Google to own the email.
+const invitedWithToken=async(email:string,token:string)=>!!token&&!!(await pool.query('SELECT 1 FROM signup_invites WHERE email=$1 AND token=$2 AND accepted_at IS NULL',[email.trim().toLowerCase(),token])).rowCount;
 export const auth=betterAuth({
   appName:'Ledger',baseURL:config.origin,secret:config.secret,database:pool,trustedOrigins:[config.origin],
   disabledPaths:config.mailEnabled?(config.signupEnabled?[]:['/sign-up/email']):['/sign-up/email','/request-password-reset','/reset-password','/send-verification-email','/verify-email'],
@@ -19,7 +24,7 @@ export const auth=betterAuth({
   // verified the same email address. Accounts with two-step verification on still enter their code (two-factor.ts).
   account:{accountLinking:{enabled:true,trustedProviders:[],requireLocalEmailVerified:true,allowDifferentEmails:false}},
   // Better Auth answers failed sign-ups with a decoy success (so emails cannot be probed); tell uninvited people plainly instead.
-  hooks:{before:createAuthMiddleware(async ctx=>{if(ctx.path==='/sign-up/email'&&config.signupMode==='invite'&&!await invited(String(ctx.body?.email||'')))throw notInvited();})},
+  hooks:{before:createAuthMiddleware(async ctx=>{if(ctx.path==='/sign-up/email'&&config.signupMode==='invite'&&!await invitedWithToken(String(ctx.body?.email||''),String(ctx.body?.inviteToken||'')))throw notInvited();})},
   // The sign-up mode is enforced where every new account is created (email or Google), not just on the form.
   // Operator-provisioned accounts (create-account.ts) are written directly and skip this.
   databaseHooks:{user:{create:{

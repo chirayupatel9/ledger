@@ -61,5 +61,14 @@ try {
  CREATE TABLE ledger_versions(owner text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,revision integer NOT NULL,action text NOT NULL,at timestamptz NOT NULL DEFAULT now(),state jsonb NOT NULL,PRIMARY KEY(owner,revision));
  INSERT INTO ledger_migrations(version) VALUES(7);
  `);}
+ // A secret token per invitation, carried in the invite link, so an invited address cannot be pre-registered by
+ // someone who merely guesses it. Existing invites are backfilled; a token already accepted stays single-use.
+ const inviteTokenMigration=await client.query('SELECT version FROM ledger_migrations WHERE version=8');
+ if(!inviteTokenMigration.rowCount){await client.query(`
+ ALTER TABLE signup_invites ADD COLUMN token text;
+ UPDATE signup_invites SET token=md5(random()::text||email||clock_timestamp()::text) WHERE token IS NULL;
+ ALTER TABLE signup_invites ALTER COLUMN token SET NOT NULL;
+ INSERT INTO ledger_migrations(version) VALUES(8);
+ `);}
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

@@ -10,6 +10,7 @@ import { LedgerService } from './ledger.js';
 import { ledgerNavs, findSchemes } from './navs.js';
 import { pool } from './database.js';
 import { config } from './config.js';
+import { randomBytes } from 'node:crypto';
 @Controller('api')
 export class PublicController{
  @Get('health') async health(){await pool.query('SELECT 1');return {status:'ok'};}
@@ -32,7 +33,7 @@ export class LedgerController{
  }
  @Get('activity') activity(@Req() req:UserRequest){return this.ledger.activity(req.user.id);}
  // Today's official NAV for each fund scheme in your ledger, and AMFI schemes to choose from when the match is unclear.
- @Get('navs') async navs(@Req() req:UserRequest){return ledgerNavs((await this.ledger.load(req.user.id)).state);}
+ @Get('navs') async navs(@Req() req:UserRequest){await rateLimit('navs:'+req.user.id,20,60);return ledgerNavs((await this.ledger.load(req.user.id)).state);}
  @Get('navs/search') async searchNavs(@Req() req:UserRequest,@Query('q') q:unknown){await rateLimit('nav-search:'+req.user.id,60,60);return {schemes:await findSchemes(typeof q==='string'?q:'')};}
  @Post('files')
  @UseInterceptors(FileInterceptor('file',{storage:memoryStorage(),limits:{fileSize:20*1024*1024,files:1,fields:1,fieldSize:100,parts:2}}))
@@ -55,9 +56,10 @@ export class InvitesController{
   await this.owner(req);const email=typeof raw==='string'?raw.trim().toLowerCase():'';
   if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw new HttpException('Enter a valid email address.',400);
   if((await pool.query('SELECT 1 FROM "user" WHERE lower(email)=$1',[email])).rowCount)throw new HttpException('That email address already has an account.',409);
-  const {rowCount}=await pool.query('INSERT INTO signup_invites(email,invited_by) VALUES($1,$2) ON CONFLICT DO NOTHING',[email,req.user.id]);
-  const emailed=!!rowCount&&config.mailEnabled&&config.signupEnabled;
-  if(emailed)await enqueueEmail(email,invitationEmail({url:`${config.origin}/signup?email=${encodeURIComponent(email)}`,email,inviter:req.user.name,google:!!(config.googleId&&config.googleSecret),origin:config.origin}));
+  // The invite link carries a single-use secret; re-inviting a pending address keeps its token and resends the link.
+  const {rows}=await pool.query('INSERT INTO signup_invites(email,invited_by,token) VALUES($1,$2,$3) ON CONFLICT(email) DO UPDATE SET token=COALESCE(signup_invites.token,EXCLUDED.token) RETURNING token,accepted_at',[email,req.user.id,randomBytes(18).toString('hex')]);
+  const emailed=!rows[0].accepted_at&&config.mailEnabled&&config.signupEnabled;
+  if(emailed)await enqueueEmail(email,invitationEmail({url:`${config.origin}/signup?email=${encodeURIComponent(email)}&token=${rows[0].token}`,email,inviter:req.user.name,google:!!(config.googleId&&config.googleSecret),origin:config.origin}));
   return {...await this.list(),emailed};
  }
  @Delete(':email') async remove(@Req() req:UserRequest,@Param('email') email:string){await this.owner(req);await pool.query('DELETE FROM signup_invites WHERE email=$1',[String(email).toLowerCase()]);return this.list();}

@@ -80,7 +80,10 @@ export function searchSchemes(query,index,{limit=20}={}){
 // match), else the automatic match, with the closest schemes to choose from.
 export function navsForLedger(state,index){
  const chosen=new Map((state.fundMatches||[]).map(m=>[schemeKey(m.scheme),m.code]));
- return fundSchemes(state).map(f=>{
+ // Each distinct fund is matched against the whole AMFI index (~14k schemes), so cap the number processed per call: a
+ // real portfolio has at most a few dozen, and without this a ledger stuffed with thousands of unique scheme names
+ // would block the single-threaded API for seconds per request.
+ return fundSchemes(state).slice(0,400).map(f=>{
   const r=matchScheme(f,index),key=schemeKey(f.scheme);
   if(!chosen.has(key))return {scheme:f.scheme,...r};
   const code=chosen.get(key),s=code?index.byCode.get(code)||null:null;
