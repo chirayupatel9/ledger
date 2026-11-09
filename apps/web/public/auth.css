@@ -10,3 +10,10 @@
 
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--a-primary:#2f6fb5;--a-bg:#06111f;--a-text:#dbe8f4;--a-heading:#eef5fb;--a-label:#a7bad0;--a-muted:#8fa3bb;--a-faint:#6d8299;--a-link:#8fd0f0;--a-field:#0d1d33;--a-line:#22385a;--a-line-soft:#172a45;--a-focus:#1f5a8c;--a-focus-line:#8fd0f0;--a-disabled:#12243d;--a-warn:#e1c779;--a-warn-bg:#25261a;--a-warn-line:#3a3a24;--a-err:#f7a8b8;--a-err-bg:#3a1726;--a-err-line:#4d2234;color-scheme:dark}}:root[data-theme=dark]{--a-primary:#2f6fb5;--a-bg:#06111f;--a-text:#dbe8f4;--a-heading:#eef5fb;--a-label:#a7bad0;--a-muted:#8fa3bb;--a-faint:#6d8299;--a-link:#8fd0f0;--a-field:#0d1d33;--a-line:#22385a;--a-line-soft:#172a45;--a-focus:#1f5a8c;--a-focus-line:#8fd0f0;--a-disabled:#12243d;--a-warn:#e1c779;--a-warn-bg:#25261a;--a-warn-line:#3a3a24;--a-err:#f7a8b8;--a-err-bg:#3a1726;--a-err-line:#4d2234;color-scheme:dark}
 .auth-panel h2{color:var(--a-heading)}
+/* Touch and press behaviour, matching the workspace: press feedback, no tap flash or tap delay, no zoom into inputs. */
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,label{touch-action:manipulation}
+button{-webkit-user-select:none;user-select:none}
+:is(.auth-primary,.google-button,.auth-secondary){transition:transform 160ms cubic-bezier(.23,1,.32,1)}
+:is(.auth-primary,.google-button,.auth-secondary):active:not(:disabled){transform:scale(.97)}
+@media (pointer:coarse){input:not([type=checkbox],[type=radio]){font-size:16px}}
