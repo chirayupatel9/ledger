@@ -82,7 +82,7 @@ jobs:
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/browser/node_modules/playwright/index.mjs
         run: |
-          for t in transactions settings history budgets auth-history; do
+          for t in transactions settings history budgets auth-history session-revoke; do
             sudo docker compose exec -T db psql -U ledger -d ledger -qc 'DELETE FROM "rateLimit"'
             echo "::group::$t"
             node tests/$t-browser.mjs
