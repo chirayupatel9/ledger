@@ -19,7 +19,7 @@ self.addEventListener('fetch',e=>{
 // Shared text and one photo are kept on the device until the page picks them up (capture-views.js openShared).
 async function receiveShare(req){
  try{const form=await req.formData(),id=crypto.randomUUID(),cache=await caches.open(SHARE);
-  const files=form.getAll('files').filter(f=>f&&typeof f!=='string'&&f.size).slice(0,1);
+  const files=form.getAll('files').filter(f=>f&&typeof f!=='string'&&f.size&&f.size<=20971520).slice(0,1);
   await cache.put(`/share/${id}`,new Response(JSON.stringify({text:[form.get('title'),form.get('text'),form.get('url')].filter(v=>typeof v==='string'&&v.trim()).join('\n'),files:files.map(f=>({name:f.name,type:f.type}))}),{headers:{'Content-Type':'application/json'}}));
   for(const [i,f] of files.entries())await cache.put(`/share/${id}/file/${i}`,new Response(f,{headers:{'Content-Type':f.type||'application/octet-stream'}}));
   return Response.redirect(`/?shared=${id}`,303);

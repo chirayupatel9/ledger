@@ -65,5 +65,10 @@ test('the timer script deploys what passed CI, once, through the deploy script o
  assert.match((await pull('--dry-run')).stdout,new RegExp(`Would deploy ${third}`));assert.equal(calls().length,3,'a dry run deploys nothing');
  runs=[run({head_sha:third,event:'pull_request'})];
  assert.equal((await pull()).code,0);assert.equal(calls().length,3,'a pull request run never deploys');
+ // A success run that points at a commit not on origin/main (e.g. a tampered API answer) is refused before its
+ // deploy.sh is ever read, even though it passed the event/branch filter.
+ writeFileSync(join(work,'deploy/deploy.sh'),'#!/bin/sh\necho "forged $*" >> "$LEDGER_DEPLOY_STATE/calls"\n');git(work,'add','-A');git(work,'commit','-qm','local only');const offMain=git(work,'rev-parse','HEAD');
+ runs=[run({head_sha:offMain,run_number:9})];
+ const refused=await pull();assert.equal(refused.code,1);assert.match(refused.stdout,/not on origin\/main/);assert.equal(calls().length,3,'a commit absent from origin/main is never run');
  assert.ok(!existsSync(join(state,'deploy-run.sh')),'the copy of deploy.sh is removed afterwards');
 });

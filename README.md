@@ -134,7 +134,7 @@ Run `PLAYWRIGHT_MODULE=/absolute/path/to/playwright/index.mjs node tests/bank-ac
 
 ## Repository
 
-The private repository is [chirayupatel9/ledger](https://github.com/chirayupatel9/ledger). GitHub Actions checks types, parser/account validation, and production builds on pushes to `main` and pull requests. Deployment remains a separate Docker operation on this server. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.
+The repository is [chirayupatel9/ledger](https://github.com/chirayupatel9/ledger), now public — see the Continuous integration section for how the server deploys itself without a GitHub runner, and keep fork pull-request workflows behind approval. GitHub Actions checks types, parser/account validation, and production builds on pushes to `main` and pull requests. Credentials (`.env`, `.secrets/`), database dumps, generated builds, dependency folders, and test screenshots are excluded from version control and Docker build context.
 
 ## Readable transactions and inline editing
 

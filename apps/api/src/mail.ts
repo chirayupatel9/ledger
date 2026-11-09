@@ -6,7 +6,17 @@ import { config } from './config.js';
 export const reservedAddress=(email: string)=>/\.(?:test|invalid|example|localhost)$/i.test(email.split('@')[1]||'');
 // Every email has a plain-text body and, from packages/domain/emails.js, a branded HTML version.
 export async function enqueueEmail(to: string, {subject,text,html}:{subject:string;text:string;html?:string}, {suppress=false}={}) {
-  await pool.query('INSERT INTO mail_outbox(recipient,subject,body,html,suppressed) VALUES ($1,$2,$3,$4,$5)', [to,subject,text,html||null,suppress||(!config.local&&reservedAddress(to))]);
+  let hold = suppress || (!config.local && reservedAddress(to));
+  // Cap real sends per recipient per hour. Reset and verification requests are rate-limited per IP only, so without
+  // this a flood from rotating IPs could bury the recipient's inbox and burn the SMTP quota. Over the cap the message
+  // is still recorded (so nothing silently vanishes) but not sent.
+  if (!hold) {
+    const {rows} = await pool.query(`INSERT INTO request_limits(key,hits,expires_at) VALUES($1,1,now()+interval '1 hour')
+      ON CONFLICT(key) DO UPDATE SET hits=CASE WHEN request_limits.expires_at<=now() THEN 1 ELSE request_limits.hits+1 END,
+      expires_at=CASE WHEN request_limits.expires_at<=now() THEN now()+interval '1 hour' ELSE request_limits.expires_at END RETURNING hits`, ['mail:'+to.trim().toLowerCase()]);
+    if (rows[0].hits > 8) hold = true;
+  }
+  await pool.query('INSERT INTO mail_outbox(recipient,subject,body,html,suppressed) VALUES ($1,$2,$3,$4,$5)', [to,subject,text,html||null,hold]);
 }
 export function startMailer() {
   const transport = nodemailer.createTransport({host:config.smtpHost,port:config.smtpPort,secure:config.smtpSecure,

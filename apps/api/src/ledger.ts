@@ -69,6 +69,8 @@ export class LedgerService{
   }
   if(removed.size)await client.query('DELETE FROM files WHERE owner=$1 AND id=ANY($2::text[])',[owner,[...removed]]);
   await client.query('INSERT INTO activity(owner,action,detail) VALUES($1,$2,$3)',[owner,action,JSON.stringify({transactions:state.transactions.length,statements:state.statements.length,revision:rows[0].revision})]);
+  // Keep the newest 500 changes per account (only the last 50 are ever shown) so the log cannot grow without bound.
+  await client.query('DELETE FROM activity WHERE owner=$1 AND id NOT IN (SELECT id FROM activity WHERE owner=$1 ORDER BY id DESC LIMIT 500)',[owner]);
   return {conflict:false,...shape(rows[0]),action};
  }
  async upload(owner:string,id:string,file:Express.Multer.File){
