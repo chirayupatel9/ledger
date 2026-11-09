@@ -70,5 +70,20 @@ try {
  ALTER TABLE signup_invites ALTER COLUMN token SET NOT NULL;
  INSERT INTO ledger_migrations(version) VALUES(8);
  `);}
+ // Optionally run apps/api as a non-superuser role (it connects as LEDGER_APP_USER; see compose.yaml). The superuser
+ // the migrations run as creates it and grants DML on the schema, every time and idempotently so later tables are
+ // covered. Default privileges cover tables future migrations add (they are created by this same superuser).
+ const appUser=process.env.LEDGER_APP_USER,appPassword=process.env.LEDGER_APP_PASSWORD;
+ if(appUser&&appUser!=='ledger'&&appPassword){
+  if(!/^[a-z_][a-z0-9_]*$/.test(appUser))throw new Error('LEDGER_APP_USER must be a plain lowercase identifier');
+  await client.query(`DO $do$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='${appUser}') THEN CREATE ROLE ${appUser} LOGIN; END IF; END $do$;`);
+  const {rows}=await client.query(`SELECT format('ALTER ROLE %I LOGIN PASSWORD %L',$1::text,$2::text) AS sql`,[appUser,appPassword]);
+  await client.query(rows[0].sql);
+  await client.query(`GRANT USAGE ON SCHEMA public TO ${appUser}`);
+  await client.query(`GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO ${appUser}`);
+  await client.query(`GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO ${appUser}`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO ${appUser}`);
+  await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE,SELECT ON SEQUENCES TO ${appUser}`);
+ }
  await client.query('COMMIT');console.log('Database migrations complete');
 } catch(error){await client.query('ROLLBACK');throw error;}finally{await client.query('SELECT pg_advisory_unlock(74639201)');client.release();await pool.end();}

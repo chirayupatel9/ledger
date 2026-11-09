@@ -9,6 +9,10 @@ x-api: &api
     NODE_ENV: production
     APP_ORIGIN: ${APP_ORIGIN:?Run node deploy/setup.mjs first}
     DATABASE_URL: postgresql://ledger:${POSTGRES_PASSWORD:?Database password required}@db:5432/ledger
+    # When set (deploy/setup.mjs generates them), migrate creates this non-superuser role and the API connects as it,
+    # so a future SQL-injection bug could not reach superuser-only paths like COPY ... TO PROGRAM. Unset = use ledger.
+    LEDGER_APP_USER: ${LEDGER_APP_USER:-}
+    LEDGER_APP_PASSWORD: ${LEDGER_APP_PASSWORD:-}
     AUTH_SECRET: ${AUTH_SECRET:?Authentication secret required}
     MAIL_DELIVERY_ENABLED: ${MAIL_DELIVERY_ENABLED:-true}
     SIGNUP_ENABLED: ${SIGNUP_ENABLED:-false}
@@ -52,6 +56,11 @@ services:
     restart: 'no'
   api:
     <<: *api
+    # migrate runs the DDL as the superuser (the anchor's DATABASE_URL); the API connects as the app role when
+    # configured, falling back to the superuser so an existing deployment without the new secret is unaffected.
+    environment:
+      <<: *api-env
+      DATABASE_URL: postgresql://${LEDGER_APP_USER:-ledger}:${LEDGER_APP_PASSWORD:-$POSTGRES_PASSWORD}@db:5432/ledger
     depends_on:
       migrate: {condition: service_completed_successfully}
     healthcheck:

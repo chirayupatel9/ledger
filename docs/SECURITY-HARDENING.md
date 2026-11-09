@@ -59,7 +59,17 @@ Test: `sudo docker compose up -d` recreates the network; confirm `docker network
 `172.18.0.0/16` and the gateway `172.18.0.1`, then sign in. If `172.18.0.0/16` is already taken by another network on
 the host, pick the subnet that network currently has instead and update both places.
 
-### 2b. Run the API as a non-superuser Postgres role
+### 2b. Run the API as a non-superuser Postgres role — DONE (opt-in on existing deployments)
+
+Implemented: `migrate` (as the superuser) creates a `ledger_app` login role and grants it DML on the app tables and
+sequences; `apps/api` connects as it. It is **opt-in and safe to merge** — the `api` service's `DATABASE_URL` falls
+back to the superuser when `LEDGER_APP_USER`/`LEDGER_APP_PASSWORD` are unset, so an existing deployment is unchanged
+until those two lines are added to `.env` (then redeploy; migrate creates the role and grants on the next run).
+`deploy/setup.mjs` generates them for new installs, so CI and fresh deployments use the restricted role by default —
+CI runs its whole suite against it. Verified locally: the role is non-superuser with DML but no schema CREATE, and the
+API ran as `ledger_app` through seven live suites with zero permission errors. The original note is kept below.
+
+
 
 `DATABASE_URL` connects as `ledger`, which is the cluster superuser (it is `POSTGRES_USER`). Any future SQL-injection
 bug could then use `COPY … TO PROGRAM` to run shell commands in the db container. Give the API a role that owns its
