@@ -32,7 +32,14 @@ Each of these changes container/network/Postgres behaviour that the CI sandbox c
 run `deploy/deploy.sh` by hand, confirm `/api/health` and sign-in, and roll back with the previous images if anything
 misbehaves.
 
-### 2a. Pin the Docker subnet (keeps Caddy's trusted-proxy address valid)
+### 2a. Pin the Docker subnet (keeps Caddy's trusted-proxy address valid) — DONE
+
+Implemented in `compose.yaml` (`networks.default.ipam.config` pins `172.18.0.0/16`). CI brings the stack up with this
+pin, and a deploy whose containers fail to start rolls back on the health check. If the host ever reports that subnet
+is already in use, change it here and in `deploy/Caddyfile`'s trusted address to the one the network actually gets.
+The original note is kept below.
+
+
 
 `deploy/Caddyfile` trusts `CF-Connecting-IP` only from the gateway `172.18.0.1`. Compose does not pin the subnet, so a
 network recreated on a different subnet would make Caddy stop trusting Cloudflare's client-IP header — then every
@@ -62,7 +69,16 @@ lacks. Because an init script runs only on an empty data volume, applying this t
 the `CREATE ROLE`/`GRANT` statements once by hand against the live database, then switching `DATABASE_URL`. Test the
 full migrate + API start + a sign-in and a ledger save before relying on it.
 
-### 2c. Harden the Caddy container
+### 2c. Harden the Caddy container — DONE (container; `--pull` optional)
+
+Implemented in `compose.yaml`: the `proxy` service now has `cap_drop: [ALL]`, `cap_add: [NET_BIND_SERVICE]`,
+`security_opt: [no-new-privileges:true]`, `read_only: true`, and `tmpfs: [/tmp]` (Caddy's certs/config stay in the
+`/data` and `/config` volumes). CI starts the stack behind this Caddy and health-checks it; a deploy where Caddy fails
+to start rolls back. Still optional and not done: moving `db` to an `internal: true` network, and adding
+`docker compose build --pull` to `deploy/deploy.sh` so base images receive updates (test a full deploy after). The
+original note is kept below.
+
+
 
 Caddy is the only internet-facing container and currently runs as root with no restrictions, on the same network as
 Postgres. Add to the `proxy:` service: `cap_drop: [ALL]`, `cap_add: [NET_BIND_SERVICE]`,
