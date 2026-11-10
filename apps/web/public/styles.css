@@ -469,3 +469,15 @@ dialog[open]{transition:opacity .28s var(--ease-spring),transform .28s var(--eas
   dialog[open]{transition:opacity .2s ease;transform:none}
   @starting-style{dialog[open]{opacity:0;transform:none}}
 }
+
+/* ===========================================================================
+   Small polish: chart tooltip entrance + hover affordance on clickable rows.
+   =========================================================================== */
+/* The chart tooltip fades up when it appears (feedback on hover/focus). It is shown by toggling [hidden], so the
+   animation replays each time it reappears, but not while it follows the pointer between points (no display change). */
+@keyframes kit-tip-in{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:none}}
+.kit-tip:not([hidden]){animation:kit-tip-in .13s var(--ease-out)}
+/* Clickable chart rows (drill-through) already show a focus ring; give them a matching hover affordance. */
+.kit-go{transition:background-color .14s var(--ease-out)}
+@media (hover:hover) and (pointer:fine){.kit-go:hover{background:var(--surface-3)}:root[data-theme=dark] .kit-go:hover{background:#12243d}}
+@media (prefers-reduced-motion:reduce){.kit-tip:not([hidden]){animation:none}}
