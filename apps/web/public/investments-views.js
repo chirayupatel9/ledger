@@ -2,6 +2,7 @@ import {donut,barList,stackedBars} from './charts.js';
 import {summarizeInvestments,fundSchemes,schemeKey} from './investments.js';
 import {transactionLabel} from './transaction-labels.js';
 import {fmtDate,istDate} from './format.js';
+import {btn,pill,modalFoot,input} from './ui.js';
 // The Investments page: SIPs, funds and the bank payments behind them (the numbers come from investments.js). Today's
 // official NAVs come from the server (/api/navs, from AMFI); each fund scheme is matched automatically when its name, plan and
 // option are certain, and otherwise you choose the scheme (saved in the ledger as fundMatches).
@@ -32,9 +33,9 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
     :metric('Redeemed',money(t.redeemed,true),'spark','Import a fund report to see units and value',true)}</div>`;
  }
  function strips(s){
-  if(!s.hasFundAccount)return `<div class="review-strip"><div class="review-icon">${icon('upload',18)}</div><div><b>See each fund, its units and its value.</b><p>Add an account of type Investment, then upload the SIP or mutual fund transaction report (Excel) from your distributor, CAMS or KFintech, or for complete holdings a Consolidated Account Statement (CAS) PDF since inception from CAMS or KFintech. A CAS is password-protected: enter its password in the PDF password field. Ledger matches each purchase to the debit from your bank.</p></div><button class="btn" data-page="accounts">Add an Investment account ${icon('chevron',12)}</button></div>`;
+  if(!s.hasFundAccount)return `<div class="review-strip"><div class="review-icon">${icon('upload',18)}</div><div><b>See each fund, its units and its value.</b><p>Add an account of type Investment, then upload the SIP or mutual fund transaction report (Excel) from your distributor, CAMS or KFintech, or for complete holdings a Consolidated Account Statement (CAS) PDF since inception from CAMS or KFintech. A CAS is password-protected: enter its password in the PDF password field. Ledger matches each purchase to the debit from your bank.</p></div>${btn(`Add an Investment account ${icon('chevron',12)}`,{data:{'page':'accounts'}})}</div>`;
   const n=s.totals.unmatched;
-  return n?`<div class="review-strip transfer-strip"><div class="review-icon">${icon('transactions',18)}</div><div><b>${plural(n,'investment payment')} from your bank ${n===1?'is':'are'} not matched to a fund report.</b><p>Link each one to its purchase so the money is counted once. If a report for that period is missing, import it.</p></div><button class="btn" data-action="pair-transfers">Review and link ${icon('chevron',12)}</button></div>`:'';
+  return n?`<div class="review-strip transfer-strip"><div class="review-icon">${icon('transactions',18)}</div><div><b>${plural(n,'investment payment')} from your bank ${n===1?'is':'are'} not matched to a fund report.</b><p>Link each one to its purchase so the money is counted once. If a report for that period is missing, import it.</p></div>${btn(`Review and link ${icon('chevron',12)}`,{action:'pair-transfers'})}</div>`:'';
  }
  function sipStatus(x){
   if(x.status==='missed')return `<small class="recurring-missing">${icon('alert',11)} Expected around ${fmtDate(x.next)}, but your ${x.source==='fund'?'report':'statement'} up to ${fmtDate(x.coveredTo)} does not show it. It may have been missed or paused.</small>`;
@@ -75,13 +76,13 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
  function bankCard(s){
   if(!s.bank.length)return '';const rules=getState().titleRules||[];
   return `<div class="card bank-investments"><div class="table-toolbar"><div><h2>Investment payments from your bank</h2><p class="sub">${plural(s.bank.length,'payment')} categorised as Investments${s.hasFundAccount?` · ${s.bank.filter(t=>t.matched).length} matched to a fund report`:''}</p></div><button class="text-link" data-page="transactions">View transactions ${icon('chevron',12)}</button></div>
-   ${s.bank.slice(0,10).map(t=>`<div class="report-line"><span>${esc(transactionLabel(t,rules).title)}<small class="sub"> · ${esc(t.account)} · ${fmtDate(t.date)}</small></span><span>${money(t.amount)}${s.hasFundAccount?(t.matched?' <span class="pill ok">Matched</span>':' <span class="pill review">Not matched</span>'):''}</span></div>`).join('')}</div>`;
+   ${s.bank.slice(0,10).map(t=>`<div class="report-line"><span>${esc(transactionLabel(t,rules).title)}<small class="sub"> · ${esc(t.account)} · ${fmtDate(t.date)}</small></span><span>${money(t.amount)}${s.hasFundAccount?(t.matched?` ${pill('Matched','ok')}`:` ${pill('Not matched','review')}`):''}</span></div>`).join('')}</div>`;
  }
  function empty(){
   return `<div class="card empty-investments"><div class="table-toolbar"><div><h2>No investments yet</h2><p class="sub">Your SIPs and mutual funds show up here in two ways.</p></div>${icon('investments',20)}</div>
    <ol class="inv-steps"><li><b>From your bank statements.</b> SIP debits through NSE Clearing, ICCL, BSE or a fund house are recognised as investments. The same amount two months running shows as a SIP.</li>
    <li><b>From your SIP report or CAS.</b> Add an account of type Investment, then upload the transaction report (Excel) from your distributor, CAMS or KFintech, or the Consolidated Account Statement (CAS) PDF from CAMS or KFintech, to see each fund’s units, NAV and value. A CAS since inception gives complete holdings. It is password-protected: enter its password in the PDF password field as you upload.</li></ol>
-   <div class="bank-actions"><button class="btn primary" data-page="accounts">Add an Investment account</button><button class="btn" data-action="upload">Upload a statement</button></div></div>`;
+   <div class="bank-actions">${btn('Add an Investment account',{variant:'primary',data:{'page':'accounts'}})}${btn('Upload a statement',{action:'upload'})}</div></div>`;
  }
  function page(){
   const s=summarizeInvestments(getState(),{today:istDate(),navs:live()});
@@ -96,8 +97,8 @@ export function createInvestmentViews({getState,money,esc,icon,api=null,save=nul
   const x=entry(scheme),f=fundSchemes(getState()).find(f=>schemeKey(f.scheme)===schemeKey(scheme));if(!x||!modal)return;
   const code=x.source==='none'?null:x.match?.code,shown=new Map(x.candidates.map(m=>[m.code,m]));
   modal('Match to an AMFI scheme',`<p class="sub"><b>${esc(scheme)}</b>${f?.nav?` · last NAV in your reports ${rupees(f.nav)} on ${fmtDate(f.navDate)}`:''}</p><p class="sub">Pick the scheme with the same plan (Direct or Regular) and option (Growth or IDCW). Its NAV should be close to the one in your report.</p>
-   <form class="invite-form" id="nav-search"><input class="input" name="q" maxlength="100" placeholder="Scheme name, AMFI code or ISIN" aria-label="Search AMFI schemes"><button class="btn" type="submit">Search</button></form><div id="nav-options" role="radiogroup" aria-label="AMFI schemes">${options(x.candidates,code)}</div>`,
-   `<button class="btn" data-action="close">Cancel</button><button class="btn primary" id="nav-save">Save match</button>`);
+   <form class="invite-form" id="nav-search">${input({name:'q',maxlength:'100',placeholder:'Scheme name, AMFI code or ISIN','aria-label':'Search AMFI schemes'})}${btn('Search',{type:'submit'})}</form><div id="nav-options" role="radiogroup" aria-label="AMFI schemes">${options(x.candidates,code)}</div>`,
+   modalFoot(btn('Save match',{variant:'primary',id:'nav-save'})));
   bindModal();
   document.querySelector('#nav-search').onsubmit=async e=>{e.preventDefault();const q=new FormData(e.target).get('q').trim();if(!q)return;const box=document.querySelector('#nav-options');
    try{const r=await api('/api/navs/search?q='+encodeURIComponent(q));for(const m of r.schemes)shown.set(m.code,m);box.innerHTML=options(r.schemes,code);}catch(err){toast(err.message)}};
