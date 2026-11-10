@@ -2,6 +2,7 @@ import {parseBankMessage,parseReceiptText,findMatches,accountsFor,enrichFromMess
 import {parseMoney} from './core.js';
 import {transactionLabel} from './transaction-labels.js';
 import {fmtDate,istDate} from './format.js';
+import {btn,field,input,select,pill} from './ui.js';
 // "Add" on the phone bar: a UPI or bank message, or a photo of a bill, matched to its transaction or added as a new one
 // (see capture.js). Bills can also wait in an inbox until the statement with their payment is imported.
 export function createCaptureViews({getState,save,render,toast,modal,bindModal,esc,icon,money,api,upload}){
@@ -16,7 +17,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
    <button class="capture-choice" data-capture="message">${icon('message',22)}<span><b>UPI or bank message</b><small>Paste an SMS or app notification. Ledger finds the payment, or adds it until your statement arrives.</small></span></button>
    <button class="capture-choice" data-capture="photo">${icon('camera',22)}<span><b>Bill or invoice</b><small>Take a photo of a bill, or choose a photo or PDF invoice. It is read on this device and attached to its payment.</small></span></button>
    <button class="capture-choice" data-capture="statement">${icon('upload',22)}<span><b>Bank statement</b><small>Import a PDF, Excel or CSV statement.</small></span></button></div>
-   ${waiting.length?`<h3 class="capture-heading">Bills waiting for their payment</h3><div class="capture-inbox">${waiting.map(r=>`<div class="report-line"><span>${esc(r.merchant||r.name)}<small class="sub"> · ${r.date?fmtDate(r.date):'no date'}</small></span><span>${r.total?money(r.total):''} <button class="btn" data-inbox="${esc(r.id)}">Find payment</button></span></div>`).join('')}</div>`:''}`);
+   ${waiting.length?`<h3 class="capture-heading">Bills waiting for their payment</h3><div class="capture-inbox">${waiting.map(r=>`<div class="report-line"><span>${esc(r.merchant||r.name)}<small class="sub"> · ${r.date?fmtDate(r.date):'no date'}</small></span><span>${r.total?money(r.total):''} ${btn(`Find payment`,{data:{'inbox':r.id}})}</span></div>`).join('')}</div>`:''}`);
   bindModal();
   document.querySelectorAll('[data-capture]').forEach(el=>el.onclick=()=>el.dataset.capture==='message'?messageStep():el.dataset.capture==='photo'?photoStep():($('#modal').close(),upload()));
   document.querySelectorAll('[data-inbox]').forEach(el=>el.onclick=()=>fromInbox(el.dataset.inbox));
@@ -24,7 +25,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
  function messageStep(text=''){
   modal('UPI or bank message',`<form id="capture-message" class="capture-form"><label class="field">Message<textarea class="input" name="text" rows="6" maxlength="2000" required placeholder="Paste the SMS or app notification, for example: Sent Rs.450.00 From HDFC Bank A/C *4821 To SWIGGY On 20/10/26 Ref 628512345678">${esc(text)}</textarea></label>
    <p class="sub">Read on this device. Ledger keeps the amount, date, account, payee and UPI reference, not the message itself.</p></form>`,
-   `<button class="btn" type="button" data-capture-back>Back</button>${navigator.clipboard?.readText?'<button class="btn" type="button" data-paste>Paste</button>':''}<button class="btn primary" type="submit" form="capture-message">Read message</button>`);
+   `${btn(`Back`,{type:'button',data:{'capture-back':true}})}${navigator.clipboard?.readText?btn(`Paste`,{type:'button',data:{'paste':true}}):''}${btn(`Read message`,{variant:'primary',type:'submit',attrs:{form:'capture-message'}})}`);
   bindModal();$('[data-capture-back]').onclick=choose;
   const paste=$('[data-paste]');if(paste)paste.onclick=async()=>{try{const t=await navigator.clipboard.readText();if(t)$('#capture-message textarea').value=t;}catch{toast('Allow pasting, or long-press the box and paste.');}};
   $('#capture-message').onsubmit=e=>{e.preventDefault();readMessage(new FormData(e.target).get('text'));};
@@ -38,7 +39,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
  }
  function photoStep(){
   modal('Bill or invoice',`<div class="capture-photo"><label class="btn primary capture-camera">${icon('camera',18)} Take a photo<input type="file" accept="image/*" capture="environment" data-photo></label><label class="btn">${icon('upload',16)} Choose a photo or PDF<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" data-photo></label></div>
-   <p class="sub">The bill is read on this device. The photo or PDF is saved privately with the payment as its receipt.</p>`,`<button class="btn" type="button" data-capture-back>Back</button>`);
+   <p class="sub">The bill is read on this device. The photo or PDF is saved privately with the payment as its receipt.</p>`,`${btn(`Back`,{type:'button',data:{'capture-back':true}})}`);
   bindModal();$('[data-capture-back]').onclick=choose;
   document.querySelectorAll('[data-photo]').forEach(el=>el.onchange=()=>{const f=el.files?.[0];if(f)readPhoto(f);});
  }
@@ -73,7 +74,7 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
   if(!choices.includes(d.choice))d.choice=list[0]?.t.id||(d.kind==='receipt'&&!d.inboxId?'later':'new');
   const row=(value,title,sub,badge='')=>`<label class="capture-option"><input type="radio" name="capture-choice" value="${esc(value)}" ${d.choice===value?'checked':''}><span><b>${title}</b>${sub?`<small class="sub">${sub}</small>`:''}</span>${badge}</label>`;
   return `${list.length?`<p class="capture-heading">${list.length===1?'This looks like the payment':'Which payment is it?'}</p>`:`<p class="sub">${Number.isSafeInteger(d.amount)&&d.amount?`No transaction for ${money(Math.abs(d.amount))} around ${fmtDate(d.date)} yet. ${d.kind==='message'?'It is added now and replaced by the statement’s row when you import it.':'Keep the bill until the statement with its payment is imported, or add it as a new payment.'}`:'Enter the amount to find the payment.'}</p>`}
-   ${list.map(m=>row(m.t.id,esc(transactionLabel(m.t,state().titleRules||[]).title),`${esc(m.t.account)} · ${fmtDate(m.t.date)} · ${money(m.t.amount)}`,m.sure?'<span class="pill ok">Same UPI reference</span>':'')).join('')}
+   ${list.map(m=>row(m.t.id,esc(transactionLabel(m.t,state().titleRules||[]).title),`${esc(m.t.account)} · ${fmtDate(m.t.date)} · ${money(m.t.amount)}`,m.sure?pill(`Same UPI reference`,'ok'):'')).join('')}
    ${row('new',d.kind==='message'?'Add as a new payment':'Add as a new payment with this bill',d.accountId?'':'Choose its account above')}
    ${d.kind==='receipt'&&!d.inboxId?row('later','Keep it for later','Matched when the statement with this payment is imported'):''}`;
  }
@@ -81,15 +82,15 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
   const d=draft,isMessage=d.kind==='message';
   modal(isMessage?'Check the payment':'Check the bill',`<form id="capture-review" class="capture-form">
    ${isMessage?`<p class="capture-quote">${esc(d.text.slice(0,240))}${d.text.length>240?'…':''}</p>`:`<img id="capture-preview" class="capture-preview" alt="The bill" ${d.url?`src="${d.url}"`:''}>${d.unread?'<p class="notice">The total could not be read from this photo. Enter it below.</p>':''}`}
-   <div class="form-grid capture-fields">${[isMessage?`<label class="field">Money<select class="input" name="direction"><option value="debit" ${d.amount<0?'selected':''}>Paid</option><option value="credit" ${d.amount>0?'selected':''}>Received</option></select></label>`:'',
-    `<label class="field">Amount (₹)<input class="input" name="amount" inputmode="decimal" required value="${amountText(d.amount)}" placeholder="0.00"></label>`,
-    `<label class="field">Date<input class="input" type="date" name="date" required value="${esc(d.date)}" max="${istDate()}"></label>`,
+   <div class="form-grid capture-fields">${[isMessage?field('Money',select({name:'direction'},`<option value="debit" ${d.amount<0?'selected':''}>Paid</option><option value="credit" ${d.amount>0?'selected':''}>Received</option>`)):'',
+    field('Amount (₹)',input({name:'amount',inputmode:'decimal',required:true,value:amountText(d.amount),placeholder:'0.00'})),
+    field('Date',input({type:'date',name:'date',required:true,value:d.date,max:istDate()})),
     isMessage?'':`<label class="field wide">Shop<input class="input" name="payee" maxlength="160" value="${esc(d.payee)}"></label>`,
     `<label class="field${isMessage?'':' wide'}">Account<select class="input" name="account">${accountOptions(d.accountId)}</select></label>`,
     isMessage?`<label class="field wide">Paid to / from<input class="input" name="payee" maxlength="160" value="${esc(d.payee)}"></label>`:''].join('')}</div>
    ${isMessage&&d.ref?`<p class="sub">UPI reference ${esc(d.ref)}</p>`:''}
    <div id="capture-options" class="capture-options">${options()}</div><p class="notice error" role="alert" hidden id="capture-error"></p></form>`,
-   `<button class="btn" type="button" data-capture-back>Back</button><button class="btn primary" type="submit" form="capture-review" id="capture-save">Save</button>`);
+   `${btn(`Back`,{type:'button',data:{'capture-back':true}})}${btn(`Save`,{variant:'primary',type:'submit',id:'capture-save',attrs:{form:'capture-review'}})}`);
   bindModal();$('[data-capture-back]').onclick=()=>isMessage?messageStep(d.text):d.inboxId?choose():photoStep();
   const form=$('#capture-review');
   const sync=()=>{const f=new FormData(form),v=parseMoney(String(f.get('amount')||'').replace(/^-/,''));d.amount=v?(isMessage&&f.get('direction')==='credit'?Math.abs(v):-Math.abs(v)):null;d.date=String(f.get('date')||'')||istDate();d.payee=String(f.get('payee')||'').trim();d.accountId=String(f.get('account')||'');d.choice=f.get('capture-choice')||d.choice;$('#capture-options').innerHTML=options();};
@@ -126,11 +127,11 @@ export function createCaptureViews({getState,save,render,toast,modal,bindModal,e
  // Receipts on a transaction: shown from the private file store, removable.
  async function viewReceipts(id){
   const t=state().transactions.find(x=>x.id===id);if(!t?.receipts?.length)return;
-  modal(t.receipts.length>1?'Receipts':'Receipt',`<div class="receipt-list">${t.receipts.map(r=>`<figure class="receipt-item" data-receipt-item="${esc(r.id)}"><img alt="Receipt ${esc(r.name)}"><figcaption><span>${esc(r.name)}</span><span><a class="btn" download="${esc(r.name)}" hidden>Download</a> <button class="btn" data-remove-receipt="${esc(r.id)}">Remove</button></span></figcaption></figure>`).join('')}</div>`);bindModal();
+  modal(t.receipts.length>1?'Receipts':'Receipt',`<div class="receipt-list">${t.receipts.map(r=>`<figure class="receipt-item" data-receipt-item="${esc(r.id)}"><img alt="Receipt ${esc(r.name)}"><figcaption><span>${esc(r.name)}</span><span><a class="btn" download="${esc(r.name)}" hidden>Download</a> ${btn(`Remove`,{data:{'remove-receipt':r.id}})}</span></figcaption></figure>`).join('')}</div>`);bindModal();
   for(const r of t.receipts){try{const res=await fetch('/api/files/'+encodeURIComponent(r.id),{credentials:'same-origin'});if(!res.ok)continue;const file=await res.blob(),item=document.querySelector(`[data-receipt-item="${CSS.escape(r.id)}"]`);if(!item)continue;item.querySelector('img').src=URL.createObjectURL(await picture(file));const a=item.querySelector('a');a.href=URL.createObjectURL(file);if(file.type==='application/pdf')a.textContent='Download PDF';a.hidden=false;}catch{}}
   document.querySelectorAll('[data-remove-receipt]').forEach(el=>el.onclick=async()=>{if(!confirm('Remove this receipt? The photo or PDF is deleted.'))return;t.receipts=t.receipts.filter(r=>r.id!==el.dataset.removeReceipt);if(!t.receipts.length)delete t.receipts;if(await save('Receipt removed')){$('#modal').close();render();toast('Receipt removed');}});
  }
- function inboxStrip(){const n=(state().receipts||[]).length;return n?`<div class="review-strip"><div class="review-icon">${icon('camera',18)}</div><div><b>${n} bill${n>1?'s are':' is'} waiting for ${n>1?'their payments':'its payment'}.</b><p>Once the statement with ${n>1?'them':'it'} is imported, match ${n>1?'each bill':'the bill'} to its payment.</p></div><button class="btn" data-action="capture">Match bills ${icon('chevron',12)}</button></div>`:'';}
+ function inboxStrip(){const n=(state().receipts||[]).length;return n?`<div class="review-strip"><div class="review-icon">${icon('camera',18)}</div><div><b>${n} bill${n>1?'s are':' is'} waiting for ${n>1?'their payments':'its payment'}.</b><p>Once the statement with ${n>1?'them':'it'} is imported, match ${n>1?'each bill':'the bill'} to its payment.</p></div>${btn(`Match bills ${icon('chevron',12)}`,{action:'capture'})}</div>`:'';}
  // Something shared to Ledger from another app (Android): the service worker keeps it until the page picks it up.
  async function openShared(id){
   try{const cache=await caches.open('ledger-share'),meta=await cache.match('/share/'+id);if(!meta)throw Error();const data=await meta.json();let file=null;
