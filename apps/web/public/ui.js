@@ -25,9 +25,10 @@ export const modalFoot=(confirm,{cancel='Cancel'}={})=>(cancel?btn(cancel,{actio
 // A labelled form control: <label class="field">label + control</label>. `control` is built with input()/select().
 export const field=(label,control)=>`<label class="field">${label}${control}</label>`;
 // <input class="input" …> — pass the rest as a {name: value} map (required:true -> bare `required`, etc.).
-export const input=o=>`<input${attrs({class:'input',...o})}>`;
-// <select class="input" …>options</select> — build `optionsHtml` with options().
-export const select=(o,optionsHtml)=>`<select${attrs({class:'input',...o})}>${optionsHtml}</select>`;
+// extraClass adds classes alongside "input" (e.g. 'color-input').
+export const input=({extraClass='',...o}={})=>`<input${attrs({class:'input'+(extraClass?' '+extraClass:''),...o})}>`;
+// <select class="input" …>options</select> — build `optionsHtml` with options(); extraClass as for input().
+export const select=({extraClass='',...o}={},optionsHtml='')=>`<select${attrs({class:'input'+(extraClass?' '+extraClass:''),...o})}>${optionsHtml}</select>`;
 // <option> list. Items are plain strings, or {value, label}: with a value the option carries it and `selected`
 // matches the value; without one the option's text is both shown and matched. Text and value are escaped.
 export const options=(items,selected)=>items.map(i=>{

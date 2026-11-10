@@ -1,4 +1,5 @@
 import {catalog,categoryUsage,categoryOptions,renameCustomCategory,deleteCustomCategory,unhideable} from './categories.js';
+import {btn,field,input,select,options,modalFoot} from './ui.js';
 // "Your categories" on the Categories page: add your own, relabel/recolour/hide built-ins, rename or delete custom ones.
 export function createCategoryViews({getState,save,render,toast,modal,bindModal,esc,icon}){
  let editing=null,adding=false,error='';
@@ -6,17 +7,17 @@ export function createCategoryViews({getState,save,render,toast,modal,bindModal,
  const swatch=c=>`<i class="category-swatch" style="background:${esc(c.color)}"></i>`;
  function form(c){
   const custom=!c||!c.builtin;
-  return `<form id="category-form" class="category-form"><div class="form-grid"><label class="field">${c?.builtin?'Label':'Name'}<input class="input" name="name" maxlength="40" required value="${esc(c?c.label:'')}" placeholder="${c?.builtin?esc(c.name):'e.g. Pets'}"></label>
-   <label class="field">Colour<input class="input color-input" type="color" name="color" value="${esc(c?.color||'#7c9cbf')}"></label>
-   ${custom?`<label class="field">Kind<select class="input" name="kind"><option value="expense" ${c?.kind!=='income'?'selected':''}>Spending</option><option value="income" ${c?.kind==='income'?'selected':''}>Income</option></select></label>`:''}
+  return `<form id="category-form" class="category-form"><div class="form-grid">${field(c?.builtin?'Label':'Name',input({name:'name',maxlength:40,required:true,value:c?c.label:'',placeholder:c?.builtin?c.name:'e.g. Pets'}))}
+   ${field('Colour',input({extraClass:'color-input',type:'color',name:'color',value:c?.color||'#7c9cbf'}))}
+   ${custom?field('Kind',select({name:'kind'},options([{value:'expense',label:'Spending'},{value:'income',label:'Income'}],c?.kind==='income'?'income':'expense'))):''}
    ${c&&!unhideable.includes(c.key)?`<label class="review-check"><input type="checkbox" name="hidden" ${c.hidden?'checked':''}> Hide from category pickers (transactions keep it)</label>`:''}</div>
    ${c?.builtin?`<p class="sub">Built-in categories keep working with automatic suggestions and tax tags; only how they look changes. Leave the label as “${esc(c.name)}” to use the original.</p>`:''}
-   ${error?`<p class="notice error" role="alert">${esc(error)}</p>`:''}<div class="bank-actions"><button class="btn primary" type="submit">${c?'Save category':'Add category'}</button><button class="btn" type="button" data-category-cancel>Cancel</button></div></form>`;
+   ${error?`<p class="notice error" role="alert">${esc(error)}</p>`:''}<div class="bank-actions">${btn(c?'Save category':'Add category',{variant:'primary',type:'submit'})}${btn('Cancel',{type:'button',data:{'category-cancel':true}})}</div></form>`;
  }
- function row(c){const used=categoryUsage(state(),c.key);return `<div class="category-row ${c.hidden?'hidden-category':''}" data-category-row="${esc(c.key)}">${swatch(c)}<div><b>${esc(c.label)}</b><p class="sub">${c.builtin?(c.label!==c.name?`Built-in “${esc(c.name)}”`:'Built-in'):'Your category'} · ${used.transactions} transaction${used.transactions===1?'':'s'}${used.rules?` · ${used.rules} rule${used.rules===1?'':'s'}`:''}${c.hidden?' · hidden':''}</p></div><div class="bank-actions"><button class="btn" data-category-edit="${esc(c.key)}">Edit</button>${c.builtin?'':`<button class="btn danger" data-category-delete="${esc(c.key)}">Delete</button>`}</div></div>${editing===c.key?form(c):''}`;}
+ function row(c){const used=categoryUsage(state(),c.key);return `<div class="category-row ${c.hidden?'hidden-category':''}" data-category-row="${esc(c.key)}">${swatch(c)}<div><b>${esc(c.label)}</b><p class="sub">${c.builtin?(c.label!==c.name?`Built-in “${esc(c.name)}”`:'Built-in'):'Your category'} · ${used.transactions} transaction${used.transactions===1?'':'s'}${used.rules?` · ${used.rules} rule${used.rules===1?'':'s'}`:''}${c.hidden?' · hidden':''}</p></div><div class="bank-actions">${btn('Edit',{data:{'category-edit':c.key}})}${c.builtin?'':btn('Delete',{variant:'danger',data:{'category-delete':c.key}})}</div></div>${editing===c.key?form(c):''}`;}
  function card(){
   const all=catalog(state()),group=(kind,title)=>{const list=all.filter(c=>c.kind===kind);return list.length?`<div class="report-label">${title}</div>${list.map(row).join('')}`:''};
-  return `<div class="card categories-card"><div class="table-toolbar"><div><h2>Your categories</h2><p class="sub">Add your own, or rename, recolour and hide the built-in ones.</p></div><button class="btn primary" id="category-add">${icon('plus',12)} Add category</button></div>${adding?form(null):''}${group('expense','Spending')}${group('income','Income')}${group('other','Transfers and other')}</div>`;
+  return `<div class="card categories-card"><div class="table-toolbar"><div><h2>Your categories</h2><p class="sub">Add your own, or rename, recolour and hide the built-in ones.</p></div>${btn(`${icon('plus',12)} Add category`,{variant:'primary',id:'category-add'})}</div>${adding?form(null):''}${group('expense','Spending')}${group('income','Income')}${group('other','Transfers and other')}</div>`;
  }
  const values=f=>Object.fromEntries(new FormData(f));
  async function persist(action){if(await save(action)){editing=null;adding=false;error='';render();toast(action);return true}error='Not saved. Check the name is unique and retry.';render();return false}
@@ -33,7 +34,7 @@ export function createCategoryViews({getState,save,render,toast,modal,bindModal,
    renameCustomCategory(s,c.id,{name,color:v.color,kind:v.kind==='income'?'income':'expense',...(v.hidden?{hidden:true}:{hidden:false})});await persist('Category updated');};
   document.querySelectorAll('[data-category-delete]').forEach(el=>el.onclick=()=>{
    const c=find(el.dataset.categoryDelete);if(!c)return;const used=categoryUsage(state(),c.key),inUse=used.transactions||used.rules;
-   modal('Delete category?',`<p class="sub">Delete <b>${esc(c.label)}</b>?${inUse?` It is used by ${used.transactions} transaction${used.transactions===1?'':'s'}${used.rules?` and ${used.rules} rule${used.rules===1?'':'s'}`:''}. Choose where they should go.`:' Nothing uses it.'}</p>${inUse?`<label class="field">Move them to<select class="input" id="category-move">${categoryOptions({...state(),customCategories:(state().customCategories||[]).filter(x=>x.id!==c.id)},'Uncategorized')}</select></label>`:''}`,`<button class="btn" data-action="close">Cancel</button><button class="btn danger" id="category-delete-confirm">Delete category</button>`);bindModal();
+   modal('Delete category?',`<p class="sub">Delete <b>${esc(c.label)}</b>?${inUse?` It is used by ${used.transactions} transaction${used.transactions===1?'':'s'}${used.rules?` and ${used.rules} rule${used.rules===1?'':'s'}`:''}. Choose where they should go.`:' Nothing uses it.'}</p>${inUse?field('Move them to',select({id:'category-move'},categoryOptions({...state(),customCategories:(state().customCategories||[]).filter(x=>x.id!==c.id)},'Uncategorized'))):''}`,modalFoot(btn('Delete category',{variant:'danger',id:'category-delete-confirm'})));bindModal();
    document.querySelector('#category-delete-confirm').onclick=async()=>{try{deleteCustomCategory(state(),c.id,document.querySelector('#category-move')?.value)}catch(e){toast(e.message);return}if(await save('Category deleted')){document.querySelector('#modal').close();editing=null;render();toast('Category deleted')}};
   });
  }
