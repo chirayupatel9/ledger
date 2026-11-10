@@ -447,3 +447,25 @@ dialog[open]{transition:opacity .28s var(--ease-spring),transform .28s var(--eas
    (identity), so nothing lingers after the animation. */
 .kit-seg[rx]{transform-box:fill-box;transform-origin:bottom;animation:kit-bar-rise .55s var(--ease-spring) both}
 @media (prefers-reduced-motion:reduce){.kit-seg[rx]{animation:none}}
+
+/* ===========================================================================
+   Mobile bottom sheet — on a phone a dialog rises from the bottom edge as a
+   sheet with a grab handle, and the header can be swiped down to dismiss it
+   (the gesture lives in app.js and is additive: the close button, Escape and
+   backdrop all still work, so a misfired swipe never traps the dialog). The
+   desktop keeps the centered modal. Enter slides up on the iOS-drawer curve;
+   while the finger tracks, app.js adds .sheet-dragging to drop the transition
+   for 1:1 movement, and the release spring comes from this transition.
+   =========================================================================== */
+@media (max-width:580px){
+  dialog{width:100%;max-width:100%;margin:0 auto;top:auto;bottom:0;max-height:92vh;border-radius:18px 18px 0 0;border-bottom:0}
+  dialog[open]{transition:transform .5s var(--ease-spring),opacity .3s var(--ease-out);transform:translateY(0);filter:none}
+  dialog.sheet-dragging{transition:none}
+  .modal-head{position:relative;padding-top:30px;touch-action:none}
+  .modal-head::before{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);width:38px;height:5px;border-radius:3px;background:var(--line-strong)}
+  @starting-style{dialog[open]{opacity:1;transform:translateY(100%);filter:none}}
+}
+@media (max-width:580px) and (prefers-reduced-motion:reduce){
+  dialog[open]{transition:opacity .2s ease;transform:none}
+  @starting-style{dialog[open]{opacity:0;transform:none}}
+}
