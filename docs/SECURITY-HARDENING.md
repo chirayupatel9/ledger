@@ -32,12 +32,13 @@ Each of these changes container/network/Postgres behaviour that the CI sandbox c
 run `deploy/deploy.sh` by hand, confirm `/api/health` and sign-in, and roll back with the previous images if anything
 misbehaves.
 
-### 2a. Pin the Docker subnet (keeps Caddy's trusted-proxy address valid) — DONE
+### 2a. Pin the Docker subnet (keeps Caddy's trusted-proxy address valid) — REVERTED, needs server testing
 
-Implemented in `compose.yaml` (`networks.default.ipam.config` pins `172.18.0.0/16`). CI brings the stack up with this
-pin, and a deploy whose containers fail to start rolls back on the health check. If the host ever reports that subnet
-is already in use, change it here and in `deploy/Caddyfile`'s trusted address to the one the network actually gets.
-The original note is kept below.
+Was shipped in PR #9 and **reverted** after it broke the production deploy: pinning a subnet on an already-running
+network forces Docker to recreate it, which failed against the live stack. CI (a fresh network each run) never hit
+this. Reintroduce **on the server**, hands-on: either recreate the stack once during a maintenance window
+(`docker compose down` without `-v`, then `up`) with the pin set to the subnet the network already uses, or pin it
+when the stack is first created. Do not auto-deploy it. The original note is kept below.
 
 
 
@@ -79,14 +80,14 @@ lacks. Because an init script runs only on an empty data volume, applying this t
 the `CREATE ROLE`/`GRANT` statements once by hand against the live database, then switching `DATABASE_URL`. Test the
 full migrate + API start + a sign-in and a ledger save before relying on it.
 
-### 2c. Harden the Caddy container — DONE (container; `--pull` optional)
+### 2c. Harden the Caddy container — REVERTED, needs server testing
 
-Implemented in `compose.yaml`: the `proxy` service now has `cap_drop: [ALL]`, `cap_add: [NET_BIND_SERVICE]`,
-`security_opt: [no-new-privileges:true]`, `read_only: true`, and `tmpfs: [/tmp]` (Caddy's certs/config stay in the
-`/data` and `/config` volumes). CI starts the stack behind this Caddy and health-checks it; a deploy where Caddy fails
-to start rolls back. Still optional and not done: moving `db` to an `internal: true` network, and adding
-`docker compose build --pull` to `deploy/deploy.sh` so base images receive updates (test a full deploy after). The
-original note is kept below.
+Was shipped in PR #9 (`cap_drop`/`read_only`/`tmpfs`/`no-new-privileges` on the `proxy` service) and **reverted**: it
+broke Caddy on the production **Cloudflare-tunnel** topology, which CI only exercised in plain-HTTP mode. Reintroduce
+**on the server**, one directive at a time, watching `docker compose logs proxy` under the real tunnel config — most
+likely `read_only` needs an extra writable path (add it as a `tmpfs` or volume) that the HTTP-only CI run never
+reached. Do not auto-deploy it. The `db` `internal:` network and `docker compose build --pull` remain optional, also
+server-tested. The original note is kept below.
 
 
 
