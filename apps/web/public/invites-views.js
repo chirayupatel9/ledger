@@ -1,14 +1,15 @@
 import {fmtDate,istDate} from './format.js';
+import {btn,input,pill} from './ui.js';
 // Settings → Invitations (workspace owner only). Invited addresses may create their own, separate ledger.
 export function createInviteViews({api,isOwner,esc,icon,toast}){
  let data=null,error='',busy=false,draft='';
- const status=i=>i.hasAccount?'<span class="pill ok">Joined</span>':'<span class="pill review">Invited</span>';
+ const status=i=>i.hasAccount?pill('Joined','ok'):pill('Invited','review');
  function inner(){
   const mode=data?.signupMode,note=!data?'':mode==='invite'?(data.mailEnabled?'Each invitation is emailed with a link to create an account.':'Email is off, so invitations are not emailed; send people the sign-up link yourself.'):mode==='open'?'Sign-up is open to anyone, so this list is not required.':'Sign-up is closed on the server, so invited people cannot sign up yet.';
   return `<div class="card-head"><div><h2>Invitations</h2><p class="sub">Only these email addresses can create an account. Each person gets a separate, private ledger; they cannot see yours.</p></div></div><div class="settings-body">
    ${data?`<p class="sub">${esc(note)}</p>`:'<p class="sub"><span class="spinner" aria-hidden="true"></span> Loading invitations…</p>'}${error?`<p class="notice error" role="alert">${esc(error)}</p>`:''}
-   ${data?`<form id="invite-form" class="invite-form"><input class="input" type="email" name="email" maxlength="254" required placeholder="name@example.com" aria-label="Email address to invite" value="${esc(draft)}"><button class="btn primary" type="submit" ${busy?'disabled':''}>${busy?'<span class="spinner" aria-hidden="true"></span>':icon('plus',12)} Invite</button></form>`:''}
-   ${data?.invites.length?`<div class="invite-list">${data.invites.map(i=>`<div class="invite-row" data-invite="${esc(i.email)}"><div><b>${esc(i.email)}</b><p class="sub">Invited ${fmtDate(istDate(i.invitedAt))}${i.acceptedAt?` · joined ${fmtDate(istDate(i.acceptedAt))}`:''}</p></div>${status(i)}${i.hasAccount?'':`<button class="btn" data-invite-remove="${esc(i.email)}">Remove</button>`}</div>`).join('')}</div>`:data?'<p class="sub">No invitations yet.</p>':''}</div>`;
+   ${data?`<form id="invite-form" class="invite-form">${input({type:'email',name:'email',maxlength:254,required:true,placeholder:'name@example.com','aria-label':'Email address to invite',value:draft})}${btn(`${busy?'<span class="spinner" aria-hidden="true"></span>':icon('plus',12)} Invite`,{variant:'primary',type:'submit',disabled:busy})}</form>`:''}
+   ${data?.invites.length?`<div class="invite-list">${data.invites.map(i=>`<div class="invite-row" data-invite="${esc(i.email)}"><div><b>${esc(i.email)}</b><p class="sub">Invited ${fmtDate(istDate(i.invitedAt))}${i.acceptedAt?` · joined ${fmtDate(istDate(i.acceptedAt))}`:''}</p></div>${status(i)}${i.hasAccount?'':btn('Remove',{data:{'invite-remove':i.email}})}</div>`).join('')}</div>`:data?'<p class="sub">No invitations yet.</p>':''}</div>`;
  }
  const card=()=>isOwner()?`<div class="card settings-card" id="invites-card">${inner()}</div>`:'';
  function paint(){const el=document.querySelector('#invites-card');if(el){el.innerHTML=inner();wire();}}
