@@ -431,3 +431,19 @@ dialog[open]{transition:opacity .28s var(--ease-spring),transform .28s var(--eas
 .input:focus,.input:focus-visible{outline:none;border-color:var(--accent-ink);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent-ink) 22%,transparent)}
 
 @media (prefers-reduced-motion:reduce){.btn{transition:none}.btn:active{transform:none}}
+
+/* ===========================================================================
+   Chart entrance — data renders in rather than popping fully formed. Bars grow
+   from their baseline and the plot fades up. It replays when the data changes
+   (period change, legend toggle), so the motion reads as "this data updated"
+   (state indication), not decoration. Fast and subtle, and a CSS animation so
+   it runs off the main thread and stays smooth while the page loads its data.
+   =========================================================================== */
+@keyframes kit-bar-rise{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+/* Only the standalone grouped bars rise — the grid, axes and labels are there from the start, so it reads as the
+   data populating the chart (state indication), not the whole chart blinking in. Scoped to rounded bars
+   (groupedBars adds rx; stacked segments do not): a stacked segment scaling from its own base would briefly gap
+   away from the one below it. fill-box origin anchors each bar to its own base, and the end state is scaleY(1)
+   (identity), so nothing lingers after the animation. */
+.kit-seg[rx]{transform-box:fill-box;transform-origin:bottom;animation:kit-bar-rise .55s var(--ease-spring) both}
+@media (prefers-reduced-motion:reduce){.kit-seg[rx]{animation:none}}
