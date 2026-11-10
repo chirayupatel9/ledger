@@ -338,3 +338,67 @@ dialog[open]::backdrop{transition:opacity 200ms var(--ease-out)}
 @starting-style{dialog[open]{opacity:0;transform:scale(.96)}dialog[open]::backdrop{opacity:0}#toast{opacity:0;transform:translate(-50%,100%)}}
 @media (pointer:coarse){input:not([type=checkbox],[type=radio],[type=range],[type=color],[type=file]),textarea,select{font-size:16px!important}}
 @media (prefers-reduced-motion:reduce){dialog[open],#toast{transition-property:opacity}}
+
+/* ===========================================================================
+   Apple-style material & motion foundation (WWDC "Designing Fluid Interfaces").
+   Translucent floating chrome, spring-like motion, size-relative typography.
+   Dense content surfaces stay near-solid for legibility — Apple's own rule that
+   materials are for floating chrome, never stacked on content. Appended last so
+   these win in the cascade; earlier rules supply everything not set here.
+   =========================================================================== */
+:root{
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;--sp-7:48px;
+  /* Critically-damped and iOS-drawer curves approximating springs for CSS transitions. */
+  --ease-spring:cubic-bezier(.32,.72,0,1);
+  --elev-1:0 1px 2px rgba(4,24,47,.06),0 2px 8px rgba(4,24,47,.05);
+  --elev-2:0 10px 30px -10px rgba(4,24,47,.22);
+  --elev-3:0 30px 80px -24px rgba(4,24,47,.4);
+  --glass:saturate(180%) blur(20px);
+  --glass-chrome:rgba(247,251,254,.72);     /* light floating chrome (header) */
+  --glass-nav:rgba(9,32,61,.78);            /* dark floating chrome (sidebar, bottom nav, toast) */
+  --hairline:rgba(4,24,47,.08);
+}
+:root[data-theme=dark]{
+  --elev-1:0 1px 2px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.35);
+  --elev-2:0 10px 30px -10px rgba(0,0,0,.5);
+  --elev-3:0 30px 80px -24px rgba(0,0,0,.7);
+  --glass-chrome:rgba(13,29,51,.7);
+  --glass-nav:rgba(6,17,31,.78);
+  --hairline:rgba(255,255,255,.08);
+}
+body{font-optical-sizing:auto;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+/* Size-relative tracking (Apple: large text wants tighter tracking; it should scale with size, not be a fixed px). */
+h1{letter-spacing:-.022em}
+h2{letter-spacing:-.018em}
+.brand{letter-spacing:-.04em}
+.metric-value,.donut-label strong{letter-spacing:-.03em}
+
+/* Floating translucent header: content scrolls under it; a soft scroll edge replaces the hard divider. */
+header{position:sticky;top:0;z-index:20;border-bottom:0;background:var(--glass-chrome);-webkit-backdrop-filter:var(--glass);backdrop-filter:var(--glass);box-shadow:0 1px 0 var(--hairline),0 10px 24px -20px rgba(4,24,47,.5)}
+
+/* Sidebar as a deeper material: a bright inner edge where light catches the glass, plus separation shadow. */
+aside{box-shadow:inset -1px 0 0 rgba(255,255,255,.06),10px 0 40px -28px rgba(4,24,47,.6)}
+aside::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(160deg,rgba(255,255,255,.05),transparent 42%)}
+
+/* Dialog: a modal task dims and blurs the field behind it, and the surface materializes (scale + blur) on open. */
+dialog{box-shadow:var(--elev-3)}
+dialog::backdrop{background:rgba(4,24,47,.5);-webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%)}
+dialog[open]{transition:opacity .28s var(--ease-spring),transform .28s var(--ease-spring),filter .28s var(--ease-spring)}
+@starting-style{dialog[open]{opacity:0;transform:scale(.94) translateY(6px);filter:blur(8px)}}
+:root[data-theme=dark] dialog::backdrop{background:rgba(0,0,0,.6)}
+
+/* Toast as a floating material. */
+#toast{background:var(--glass-nav);-webkit-backdrop-filter:var(--glass);backdrop-filter:var(--glass);box-shadow:var(--elev-2);border:1px solid rgba(255,255,255,.08)}
+
+/* Phone bottom nav: fixed over scrolling content — the clearest glass win. */
+@media(max-width:580px){aside{background:var(--glass-nav);-webkit-backdrop-filter:var(--glass);backdrop-filter:var(--glass);box-shadow:0 -10px 30px -18px rgba(4,24,47,.5)}aside::before{display:none}}
+
+/* Accessibility: honour reduced transparency / contrast / motion (Apple: a gentler equivalent, not nothing). */
+@media (prefers-reduced-transparency: reduce){
+  header{background:var(--surface-2);-webkit-backdrop-filter:none;backdrop-filter:none}
+  #toast{background:var(--navy);-webkit-backdrop-filter:none;backdrop-filter:none}
+  dialog::backdrop{-webkit-backdrop-filter:none;backdrop-filter:none}
+  @media(max-width:580px){aside{background:var(--navy);-webkit-backdrop-filter:none;backdrop-filter:none}}
+}
+@media (prefers-contrast: more){header{border-bottom:1px solid var(--line-strong)}.card{border-color:var(--line-strong)}}
+@media (prefers-reduced-motion: reduce){dialog[open]{transition:opacity .16s ease;transform:none;filter:none}}
