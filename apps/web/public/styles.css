@@ -481,3 +481,12 @@ dialog[open]{transition:opacity .28s var(--ease-spring),transform .28s var(--eas
 .kit-go{transition:background-color .14s var(--ease-out)}
 @media (hover:hover) and (pointer:fine){.kit-go:hover{background:var(--surface-3)}:root[data-theme=dark] .kit-go:hover{background:#12243d}}
 @media (prefers-reduced-motion:reduce){.kit-tip:not([hidden]){animation:none}}
+
+/* ===========================================================================
+   Numeric & surface polish.
+   =========================================================================== */
+/* Tabular figures: money uses fixed-width digits so columns line up and the value doesn't jitter in width when it
+   changes (e.g. switching the period on the dashboard). .amount already does this; extend it to the other figures. */
+.metric-value,.metric-foot span,.bank-totals dd,.report-line,.kit-bar-head b,.donut-label strong,.bank-books b{font-variant-numeric:tabular-nums}
+/* Dashboard metric tiles read as their own surface, like the cards (they aren't .card, so they missed the lift). */
+.metric{box-shadow:var(--elev-1)}
