@@ -504,8 +504,10 @@ tr.selected td:first-child{box-shadow:inset 3px 0 0 var(--accent-ink)}
 
 /* 3. Scroll shadows — a soft shadow appears at a scroll container's edge only while there is more content beyond it.
    Lea Verou's background-attachment technique: the cover layers scroll with the content (local) and hide the shadow
-   at the extremes, while the shadow layers stay pinned to the container (scroll). --scroll-bg matches the surface. */
-.pair-list,.import-table{
+   at the extremes, while the shadow layers stay pinned to the container (scroll). --scroll-bg matches the surface.
+   Works wherever the content is transparent at the fading edge (list rows, text, table body cells). */
+/* Vertical scrollers — top/bottom edge. */
+.pair-list,.import-table,.capture-quote{
   --scroll-bg:var(--surface);
   --scroll-shadow:rgba(4,24,47,.16);
   background:
@@ -516,4 +518,19 @@ tr.selected td:first-child{box-shadow:inset 3px 0 0 var(--accent-ink)}
   background-color:var(--scroll-bg);
 }
 /* On the dark surface a dark shadow is invisible, so the edge recess is a stronger black. */
-:root[data-theme=dark] :is(.pair-list,.import-table){--scroll-bg:#0d1d33;--scroll-shadow:rgba(0,0,0,.6)}
+:root[data-theme=dark] :is(.pair-list,.import-table,.capture-quote){--scroll-bg:#0d1d33;--scroll-shadow:rgba(0,0,0,.6)}
+
+/* Horizontal scrollers (wide data tables, the activity heatmap) are dense or opaque, so a behind-content
+   shadow can't show. scroll-fade.js masks the element's OWN pixels instead: each edge's fade ramp is 0 unless
+   there is more content beyond it, and the JS only rewrites a ramp when an edge is crossed. Degrades to a plain
+   hard edge if the script doesn't run. The two mask layers (one per axis) intersect, so corners fade on both. */
+.sfade{
+  -webkit-mask-image:
+    linear-gradient(to right,transparent 0,#000 var(--fade-l,0px),#000 calc(100% - var(--fade-r,0px)),transparent 100%),
+    linear-gradient(to bottom,transparent 0,#000 var(--fade-t,0px),#000 calc(100% - var(--fade-b,0px)),transparent 100%);
+  mask-image:
+    linear-gradient(to right,transparent 0,#000 var(--fade-l,0px),#000 calc(100% - var(--fade-r,0px)),transparent 100%),
+    linear-gradient(to bottom,transparent 0,#000 var(--fade-t,0px),#000 calc(100% - var(--fade-b,0px)),transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-composite:intersect;
+}
