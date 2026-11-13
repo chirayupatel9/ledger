@@ -21,6 +21,7 @@ import {phoneReplacements,carryOver} from './capture.js';
 import {applyLearned} from './learn.js';
 import {loadingHTML} from './loading.js';
 import {enableCharts,hideChartTip,groupedBars,markAttrs,liveAttrs} from './charts.js';
+import {initScrollFade} from './scroll-fade.js';
 import {transactionLabel as baseTransactionLabel} from './transaction-labels.js';
 import {readWorkspaceLocation,workspaceURL} from './workspace-routing.js';
 import {upgradeAccounts} from './accounts.js';
@@ -276,7 +277,7 @@ const pwaUI=createPwaViews({icon});
 const captureUI=createCaptureViews({getState:()=>state,save,render,toast,modal,bindModal,esc,icon,money,api,upload});
 // Read before the first render rewrites the address: ?shared=<id> (shared from another app) or ?capture=1 (app shortcut).
 const launch=new URLSearchParams(location.search);let launched=false;
-function afterLaunch(){if(launched)return;launched=true;const shared=launch.get('shared');if(shared==='unavailable')toast('Open Ledger once more, then share again.');else if(shared)captureUI.openShared(shared);else if(launch.get('capture')==='1')captureUI.open();}
+function afterLaunch(){if(launched)return;launched=true;initScrollFade();const shared=launch.get('shared');if(shared==='unavailable')toast('Open Ledger once more, then share again.');else if(shared)captureUI.openShared(shared);else if(launch.get('capture')==='1')captureUI.open();}
 const categoryUI=createCategoryViews({getState:()=>state,save,render,toast,modal,bindModal,esc,icon});
 const preferencesUI=createPreferencesViews({getState:()=>state,rows,save,render,esc,money,toast});
 const bankUI=createAccountViews({getState:()=>state,money,esc,icon,modal,bindModal,save,render,toast,onView:id=>{accountFilter=id;search='';typeFilter='all';navigate('transactions')},onImport:id=>upload(id)});
